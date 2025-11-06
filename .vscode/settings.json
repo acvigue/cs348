@@ -1,0 +1,21 @@
+{
+  "editor.defaultFormatter": "esbenp.prettier-vscode",
+  "editor.formatOnSave": true,
+  "explorer.fileNesting.enabled": true,
+  "explorer.fileNesting.expand": false,
+  "explorer.fileNesting.patterns": {
+    "package.json": "pnpm-lock.yaml, pnpm-workspace.yaml, .npmrc, yarn.lock, package-lock.json, .yarnrc.yml",
+    ".eslintrc.*": ".eslintignore, .eslintcache",
+    ".prettierrc.*": ".prettierignore, .prettierrc.json, .prettierrc.js, .prettierrc.yml, .prettierrc.yaml, prettier.config.js, prettier.config.cjs, prettier.config.mjs, .eslintignore, .eslintcache, eslint.config.mjs, eslint.config.cjs, eslint.config.ts",
+    "prettier.config.*": ".prettierignore, .prettierrc.json, .prettierrc.js, .prettierrc.yml, .prettierrc.yaml",
+    "nuxt.config.*": "app.config.ts, app.config.js",
+    "tsconfig.json": "tsconfig.*.json, jsconfig.json, jsconfig.*.json",
+    "tailwind.config.*": "tailwind.config.js, tailwind.config.ts, tailwind.config.cjs, tailwind.config.mjs, postcss.config.js, postcss.config.cjs, postcss.config.mjs",
+    "vite.config.*": "vite.config.js, vite.config.ts, vite.config.mjs, vite.config.cjs",
+    "docker-compose.yml": "docker-compose.*.yml, docker-compose.*.yaml, Dockerfile*, .dockerignore",
+    "README.md": "CHANGELOG.md, CONTRIBUTING.md, LICENSE, LICENSE.md, CODE_OF_CONDUCT.md, SECURITY.md",
+    ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*",
+    "renovate.json": "renovate.json5, .renovaterc, .renovaterc.json, renovate.config.js, renovate.config.ts",
+    "prisma.config.*": "prisma.config.js, prisma.config.ts"
+  }
+}
