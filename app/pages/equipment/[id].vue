@@ -87,7 +87,7 @@ watch(
       state.serialNumber = newEquipment.serialNumber
       state.description = newEquipment.description || ''
       state.labId = newEquipment.labId
-      state.status = newEquipment.status
+      state.status = newEquipment.dbStatus
       if (newEquipment.lab) {
         selectedLab.value = {
           id: newEquipment.lab.id,
@@ -164,7 +164,7 @@ const cancelEdit = () => {
     state.serialNumber = equipment.value.serialNumber
     state.description = equipment.value.description || ''
     state.labId = equipment.value.labId
-    state.status = equipment.value.status
+    state.status = equipment.value.dbStatus
   }
 }
 
@@ -230,7 +230,7 @@ const activeReservations = computed(() => {
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
                   {{ equipment.name }}
                 </h1>
-                <EquipmentStatusBadge :status="equipment.computedStatus" size="lg" />
+                <EquipmentStatusBadge :status="equipment.status" size="lg" />
               </div>
               <p class="text-gray-600 dark:text-gray-400">
                 Added {{ new Date(equipment.createdAt).toLocaleDateString() }}

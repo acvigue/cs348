@@ -4,6 +4,7 @@ definePageMeta({
 })
 
 const { user } = await useUser()
+const toast = useToast()
 
 useHead({
   title: 'Dashboard - Lab Equipment Reservation System',
@@ -15,39 +16,137 @@ useHead({
   ]
 })
 
-// Sample data - in a real app, this would come from your API
-const recentReservations = ref([
-  {
-    id: 1,
-    equipment: 'Oscilloscope OSC-001',
-    startTime: '2024-11-07 10:00',
-    endTime: '2024-11-07 12:00',
-    status: 'CONFIRMED',
-    lab: 'Electronics Lab A'
-  },
-  {
-    id: 2,
-    equipment: 'Spectrum Analyzer SA-205',
-    startTime: '2024-11-08 14:00',
-    endTime: '2024-11-08 16:00',
-    status: 'PENDING',
-    lab: 'RF Lab B'
-  }
-])
-
-const quickStats = ref({
-  activeReservations: 3,
-  upcomingReservations: 5,
-  totalEquipment: 45,
-  availableNow: 32
+const isInstructorOrAdmin = computed(() => {
+  return user.value?.body?.role === 'INSTRUCTOR' || user.value?.body?.role === 'ADMIN'
 })
 
-const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
-  PENDING: 'warning',
-  CONFIRMED: 'success',
-  CANCELLED: 'error',
-  COMPLETED: 'info'
+// Fetch labs with real data
+const { data: labsData } = await useFetch('/api/labs')
+const labs = computed(() => labsData.value?.labs || [])
+
+// Fetch equipment stats
+const { data: equipmentData } = await useFetch('/api/equipment')
+const totalEquipment = computed(() => equipmentData.value?.pagination?.total_results || 0)
+const availableNow = computed(() => {
+  return equipmentData.value?.equipment?.filter((e) => e.status === 'AVAILABLE').length || 0
+})
+
+// Fetch reservations
+const {
+  data: reservationsData,
+  refresh: refreshReservations
+} = await useFetch('/api/reservations', {
+  query: { results_per_page: isInstructorOrAdmin.value ? 10 : 5 }
+})
+
+const reservations = computed(() => {
+  const allReservations = reservationsData.value?.reservations || []
+  // For regular users, show only their own reservations
+  if (!isInstructorOrAdmin.value && user.value?.body?.id) {
+    return allReservations.filter((r) => r.userId === user.value!.body.id)
+  }
+  // For instructors/admins, show all reservations
+  return allReservations
+})
+
+// Calculate stats
+const activeReservations = computed(() => {
+  return reservations.value.filter((r) => r.status === 'IN_PROGRESS').length
+})
+
+const upcomingReservations = computed(() => {
+  return reservations.value.filter((r) => r.status === 'CONFIRMED').length
+})
+
+const canConfirmReservation = (reservation: { status: string; endTime: string }) => {
+  if (!isInstructorOrAdmin.value) return false
+  const isPast = new Date() > new Date(reservation.endTime)
+  return reservation.status === 'PENDING' && !isPast
 }
+
+const canCancelReservation = (reservation: { status: string; endTime: string; userId: number }) => {
+  const isPast = new Date() > new Date(reservation.endTime)
+  const isCancellable = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(reservation.status)
+
+  if (isInstructorOrAdmin.value) {
+    return !isPast && isCancellable
+  }
+
+  // Regular users can only cancel their own non-approved reservations
+  return !isPast && reservation.status === 'PENDING' && reservation.userId === user.value?.body?.id
+}
+
+const confirmLoading = ref<Record<number, boolean>>({})
+const cancelLoading = ref<Record<number, boolean>>({})
+
+const confirmReservation = async (reservationId: number) => {
+  confirmLoading.value[reservationId] = true
+  try {
+    await $fetch(`/api/reservations/${reservationId}/confirm`, {
+      method: 'PUT'
+    })
+    toast.add({
+      title: 'Success',
+      description: 'Reservation confirmed',
+      color: 'success'
+    })
+    await refreshReservations()
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: (error as any).data?.message || 'Failed to confirm reservation',
+      color: 'error'
+    })
+  } finally {
+    confirmLoading.value[reservationId] = false
+  }
+}
+
+const cancelReservation = async (reservationId: number) => {
+  cancelLoading.value[reservationId] = true
+  try {
+    await $fetch(`/api/reservations/${reservationId}/cancel`, {
+      method: 'PUT'
+    })
+    toast.add({
+      title: 'Success',
+      description: 'Reservation cancelled',
+      color: 'success'
+    })
+    await refreshReservations()
+  } catch (error) {
+    toast.add({
+      title: 'Error',
+      description: (error as any).data?.message || 'Failed to cancel reservation',
+      color: 'error'
+    })
+  } finally {
+    cancelLoading.value[reservationId] = false
+  }
+}
+
+const formatDateTime = (date: string) => {
+  return new Date(date).toLocaleString('en-US', {
+    month: 'short',
+    day: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit'
+  })
+}
+
+const getLabBgClass = (availability: string) => {
+  switch (availability) {
+    case 'EMPTY':
+      return 'bg-green-50 dark:bg-green-900/20'
+    case 'IN_USE':
+      return 'bg-yellow-50 dark:bg-yellow-900/20'
+    case 'FULL':
+      return 'bg-red-50 dark:bg-red-900/20'
+    default:
+      return 'bg-gray-50 dark:bg-gray-900/20'
+  }
+}
+
 </script>
 
 <template>
@@ -74,9 +173,9 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ quickStats.activeReservations }}
+                {{ activeReservations }}
               </p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Active Reservations</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Active Now</p>
             </div>
           </div>
         </UCard>
@@ -93,7 +192,7 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ quickStats.upcomingReservations }}
+                {{ upcomingReservations }}
               </p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Upcoming</p>
             </div>
@@ -112,7 +211,7 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ quickStats.totalEquipment }}
+                {{ totalEquipment }}
               </p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Total Equipment</p>
             </div>
@@ -131,7 +230,7 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             </div>
             <div>
               <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ quickStats.availableNow }}
+                {{ availableNow }}
               </p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Available Now</p>
             </div>
@@ -184,12 +283,12 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
               size="lg"
               color="neutral"
               variant="outline"
-              icon="i-heroicons-chart-bar"
+              icon="i-heroicons-beaker"
               block
-              to="/reports"
+              to="/equipment"
               class="justify-center"
             >
-              View Reports
+              Browse Labs
             </UButton>
           </div>
         </UCard>
@@ -199,36 +298,29 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Lab Status</h2>
           </template>
 
-          <div class="space-y-4">
+          <div class="space-y-3 max-h-[280px] overflow-y-auto">
             <div
-              class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"
+              v-for="lab in labs"
+              :key="lab.id"
+              class="flex items-center justify-between p-3 rounded-lg"
+              :class="getLabBgClass(lab.availability)"
             >
-              <div>
-                <p class="font-medium text-gray-900 dark:text-white">Electronics Lab A</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Building 2, Room 101</p>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-900 dark:text-white truncate">
+                  {{ lab.building }} {{ lab.roomNumber }}
+                </p>
+                <p class="text-sm text-gray-600 dark:text-gray-400 truncate">
+                  {{ lab.description || 'No description' }}
+                </p>
               </div>
-              <UBadge color="success" variant="subtle">Available</UBadge>
+              <LabAvailabilityBadge :availability="lab.availability" />
             </div>
-
-            <div
-              class="flex items-center justify-between p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg"
+            <p
+              v-if="labs.length === 0"
+              class="text-sm text-gray-500 text-center py-4"
             >
-              <div>
-                <p class="font-medium text-gray-900 dark:text-white">RF Lab B</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Building 2, Room 201</p>
-              </div>
-              <UBadge color="warning" variant="subtle">Busy</UBadge>
-            </div>
-
-            <div
-              class="flex items-center justify-between p-3 bg-green-50 dark:bg-green-900/20 rounded-lg"
-            >
-              <div>
-                <p class="font-medium text-gray-900 dark:text-white">Materials Lab C</p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">Building 3, Room 105</p>
-              </div>
-              <UBadge color="success" variant="subtle">Available</UBadge>
-            </div>
+              No labs available
+            </p>
           </div>
         </UCard>
       </div>
@@ -237,7 +329,9 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
       <UCard>
         <template #header>
           <div class="flex items-center justify-between">
-            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Recent Reservations</h2>
+            <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+              {{ isInstructorOrAdmin ? 'Recent Reservations' : 'My Recent Reservations' }}
+            </h2>
             <UButton variant="ghost" to="/reservations" icon="i-heroicons-arrow-right">
               View All
             </UButton>
@@ -249,9 +343,11 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             <thead>
               <tr class="border-b border-gray-200 dark:border-gray-700">
                 <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
-                  Equipment
+                  Purpose
                 </th>
-                <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Lab</th>
+                <th v-if="isInstructorOrAdmin" class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                  User
+                </th>
                 <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Time</th>
                 <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
                   Status
@@ -263,35 +359,65 @@ const statusColors: Record<string, 'warning' | 'success' | 'error' | 'info'> = {
             </thead>
             <tbody>
               <tr
-                v-for="reservation in recentReservations"
+                v-for="reservation in reservations"
                 :key="reservation.id"
                 class="border-b border-gray-100 dark:border-gray-800"
               >
-                <td class="py-3 px-4 text-gray-900 dark:text-white font-medium">
-                  {{ reservation.equipment }}
+                <td class="py-3 px-4 text-gray-900 dark:text-white font-medium max-w-xs truncate">
+                  {{ reservation.purpose }}
                 </td>
-                <td class="py-3 px-4 text-gray-600 dark:text-gray-400">{{ reservation.lab }}</td>
-                <td class="py-3 px-4 text-gray-600 dark:text-gray-400">
-                  {{ reservation.startTime }} - {{ reservation.endTime.split(' ')[1] }}
+                <td v-if="isInstructorOrAdmin" class="py-3 px-4 text-gray-600 dark:text-gray-400">
+                  {{ reservation.user.email }}
                 </td>
-                <td class="py-3 px-4">
-                  <UBadge :color="statusColors[reservation.status]" variant="subtle">
-                    {{ reservation.status }}
-                  </UBadge>
+                <td class="py-3 px-4 text-gray-600 dark:text-gray-400 whitespace-nowrap">
+                  {{ formatDateTime(reservation.startTime) }}
                 </td>
                 <td class="py-3 px-4">
-                  <UButton
-                    variant="ghost"
-                    size="sm"
-                    icon="i-heroicons-pencil"
-                    :to="`/reservations/${reservation.id}/edit`"
-                  >
-                    Edit
-                  </UButton>
+                  <ReservationStatusBadge :status="reservation.status" />
+                </td>
+                <td class="py-3 px-4">
+                  <div class="flex gap-2">
+                    <UButton
+                      variant="ghost"
+                      size="sm"
+                      icon="i-heroicons-eye"
+                      :to="`/reservations/${reservation.id}`"
+                    >
+                      View
+                    </UButton>
+                    <UButton
+                      v-if="canConfirmReservation(reservation)"
+                      variant="ghost"
+                      size="sm"
+                      color="success"
+                      icon="i-heroicons-check"
+                      :loading="confirmLoading[reservation.id]"
+                      @click="confirmReservation(reservation.id)"
+                    >
+                      Confirm
+                    </UButton>
+                    <UButton
+                      v-if="canCancelReservation(reservation)"
+                      variant="ghost"
+                      size="sm"
+                      color="error"
+                      icon="i-heroicons-x-mark"
+                      :loading="cancelLoading[reservation.id]"
+                      @click="cancelReservation(reservation.id)"
+                    >
+                      Cancel
+                    </UButton>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
+          <p
+            v-if="reservations.length === 0"
+            class="text-center py-8 text-gray-500"
+          >
+            No reservations found
+          </p>
         </div>
       </UCard>
     </UContainer>

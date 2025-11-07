@@ -64,25 +64,30 @@ export function computeEquipmentStatus(
 }
 
 /**
- * Adds computed status to a single equipment object
+ * Adds computed status to a single equipment object, replacing the database status
+ * with the merged computed status (union of database status and reservation-based status).
+ * Also includes the original database status as `dbStatus` for editing purposes.
  */
 export function addComputedStatus<T extends EquipmentWithReservations>(
   equipment: T,
   currentTime?: Date
-): T & { computedStatus: ComputedEquipmentStatus } {
+): Omit<T, 'status'> & { status: ComputedEquipmentStatus; dbStatus: EquipmentStatus } {
+  const { status: originalStatus, ...rest } = equipment
   return {
-    ...equipment,
-    computedStatus: computeEquipmentStatus(equipment, currentTime)
-  }
+    ...rest,
+    status: computeEquipmentStatus(equipment, currentTime),
+    dbStatus: originalStatus
+  } as Omit<T, 'status'> & { status: ComputedEquipmentStatus; dbStatus: EquipmentStatus }
 }
 
 /**
- * Adds computed status to an array of equipment objects
+ * Adds computed status to an array of equipment objects, replacing the database status
+ * with the merged computed status. Also includes the original database status as `dbStatus`.
  */
 export function addComputedStatusToMany<T extends EquipmentWithReservations>(
   equipmentList: T[],
   currentTime?: Date
-): Array<T & { computedStatus: ComputedEquipmentStatus }> {
+): Array<Omit<T, 'status'> & { status: ComputedEquipmentStatus; dbStatus: EquipmentStatus }> {
   return equipmentList.map((equipment) => addComputedStatus(equipment, currentTime))
 }
 

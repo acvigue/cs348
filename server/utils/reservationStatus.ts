@@ -55,25 +55,30 @@ export function computeReservationStatus(
 }
 
 /**
- * Adds computed status to a single reservation object
+ * Adds computed status to a single reservation object, replacing the database status
+ * with the merged computed status (union of database status and time-based status).
+ * Also includes the original database status as `dbStatus` for editing purposes.
  */
 export function addComputedReservationStatus<T extends ReservationWithTimes>(
   reservation: T,
   currentTime?: Date
-): T & { computedStatus: ComputedReservationStatus } {
+): Omit<T, 'status'> & { status: ComputedReservationStatus; dbStatus: ReservationStatus } {
+  const { status: originalStatus, ...rest } = reservation
   return {
-    ...reservation,
-    computedStatus: computeReservationStatus(reservation, currentTime)
-  }
+    ...rest,
+    status: computeReservationStatus(reservation, currentTime),
+    dbStatus: originalStatus
+  } as Omit<T, 'status'> & { status: ComputedReservationStatus; dbStatus: ReservationStatus }
 }
 
 /**
- * Adds computed status to an array of reservation objects
+ * Adds computed status to an array of reservation objects, replacing the database status
+ * with the merged computed status. Also includes the original database status as `dbStatus`.
  */
 export function addComputedReservationStatusToMany<T extends ReservationWithTimes>(
   reservations: T[],
   currentTime?: Date
-): Array<T & { computedStatus: ComputedReservationStatus }> {
+): Array<Omit<T, 'status'> & { status: ComputedReservationStatus; dbStatus: ReservationStatus }> {
   return reservations.map((reservation) => addComputedReservationStatus(reservation, currentTime))
 }
 

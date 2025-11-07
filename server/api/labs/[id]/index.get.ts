@@ -100,7 +100,7 @@ export default defineEventHandler(async (event) => {
       // Count equipment by computed status
       lab.equipment.forEach((equipment) => {
         const status = computeEquipmentStatus(equipment, currentTime)
-        if (status === 'AVAILABLE') {
+        if (status === 'AVAILABLE' || status === 'MAINTENANCE' || status === 'OUT_OF_ORDER') {
           availableCount++
         } else {
           unavailableCount++

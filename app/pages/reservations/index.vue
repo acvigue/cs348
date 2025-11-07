@@ -41,7 +41,7 @@ const pagination = computed(() => reservationsData.value?.pagination)
 // Filter reservations by status
 const filteredReservations = computed(() => {
   if (statusFilter.value === 'ALL') return reservations.value
-  return reservations.value.filter((r) => r.computedStatus === statusFilter.value)
+  return reservations.value.filter((r) => r.status === statusFilter.value)
 })
 
 const statusOptions = [
@@ -159,7 +159,7 @@ const getLabNames = (reservation: {
           <div class="flex items-start justify-between">
             <div class="flex-1">
               <div class="flex items-center gap-3 mb-3">
-                <ReservationStatusBadge :status="reservation.computedStatus" size="lg" />
+                <ReservationStatusBadge :status="reservation.status" size="lg" />
                 <span class="text-sm text-gray-600 dark:text-gray-400">
                   ID: #{{ reservation.id }}
                 </span>

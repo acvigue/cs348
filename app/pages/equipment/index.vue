@@ -56,7 +56,7 @@ const filteredEquipment = computed(() => {
   let filtered = equipment.value
 
   if (statusFilter.value !== 'ALL') {
-    filtered = filtered.filter((e) => e.computedStatus === statusFilter.value)
+    filtered = filtered.filter((e) => e.status === statusFilter.value)
   }
 
   if (labFilter.value !== 'ALL') {
@@ -207,7 +207,7 @@ const confirmDelete = async () => {
           <div class="flex items-start justify-between">
             <div class="flex-1">
               <div class="flex items-center gap-3 mb-3">
-                <EquipmentStatusBadge :status="item.computedStatus" size="lg" />
+                <EquipmentStatusBadge :status="item.status" size="lg" />
                 <span class="text-sm text-gray-600 dark:text-gray-400"> ID: #{{ item.id }} </span>
               </div>
 

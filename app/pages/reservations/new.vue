@@ -241,7 +241,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
                 <UCheckbox
                   :id="`equipment-${equipment.id}`"
                   :model-value="state.equipmentIds.includes(equipment.id)"
-                  :disabled="equipment.computedStatus !== 'AVAILABLE'"
+                  :disabled="equipment.status !== 'AVAILABLE'"
                   @update:model-value="
                     (checked) => {
                       if (checked) {
@@ -262,7 +262,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
                         {{ equipment.type }} • {{ equipment.serialNumber }}
                       </p>
                     </div>
-                    <EquipmentStatusBadge :status="equipment.computedStatus" />
+                    <EquipmentStatusBadge :status="equipment.status" />
                   </div>
                 </label>
               </div>

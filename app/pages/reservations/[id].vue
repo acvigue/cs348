@@ -52,7 +52,7 @@ const canCancel = computed(() => {
   const isInstructor = currentUser.role === 'INSTRUCTOR' && res.userId !== currentUser.id
   const isAdmin = currentUser.role === 'ADMIN'
   const isPast = new Date() > new Date(res.endTime)
-  const isCancellable = ['PENDING', 'CONFIRMED'].includes(res.status)
+  const isCancellable = ['PENDING', 'CONFIRMED', 'IN_PROGRESS'].includes(res.status)
 
   return !isPast && isCancellable && (isOwner || isInstructor || isAdmin)
 })
@@ -176,7 +176,7 @@ const labInfo = computed(() => (reservation.value ? getLabInfo(reservation.value
                 <h1 class="text-3xl font-bold text-gray-900 dark:text-white">
                   Reservation #{{ reservation.id }}
                 </h1>
-                <ReservationStatusBadge :status="reservation.computedStatus" size="lg" />
+                <ReservationStatusBadge :status="reservation.status" size="lg" />
               </div>
               <p class="text-gray-600 dark:text-gray-400">
                 Created {{ new Date(reservation.createdAt).toLocaleDateString() }}
@@ -256,7 +256,7 @@ const labInfo = computed(() => (reservation.value ? getLabInfo(reservation.value
                       {{ item.equipment.type }} • {{ item.equipment.serialNumber }}
                     </p>
                   </div>
-                  <EquipmentStatusBadge :status="item.equipment.computedStatus" />
+                  <EquipmentStatusBadge :status="item.equipment.status" />
                 </div>
               </div>
             </UCard>
