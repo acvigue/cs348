@@ -6,7 +6,8 @@ defineRouteMeta({
   openAPI: {
     tags: ['Equipment'],
     summary: 'Update equipment',
-    description: 'Update equipment information. Requires ADMIN or INSTRUCTOR role.',
+    description:
+      'Update equipment information. Only OPERATIONAL, MAINTENANCE, and OUT_OF_ORDER statuses can be set. Requires ADMIN or INSTRUCTOR role.',
     security: [{ sessionAuth: [] }],
     parameters: [parameters.id],
     requestBody: {
@@ -23,7 +24,7 @@ defineRouteMeta({
               labId: { type: 'number', description: 'Lab ID' },
               status: {
                 type: 'string',
-                enum: ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'OUT_OF_ORDER']
+                enum: ['OPERATIONAL', 'MAINTENANCE', 'OUT_OF_ORDER']
               }
             }
           }
@@ -60,7 +61,7 @@ const updateEquipmentSchema = z.object({
   serialNumber: z.string().min(1, 'Serial number is required').optional(),
   description: z.string().optional(),
   labId: z.number().int().positive('Lab ID must be a positive integer').optional(),
-  status: z.enum(['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'OUT_OF_ORDER']).optional()
+  status: z.enum(['OPERATIONAL', 'MAINTENANCE', 'OUT_OF_ORDER']).optional()
 })
 
 async function checkUserPermissions(userId: number) {

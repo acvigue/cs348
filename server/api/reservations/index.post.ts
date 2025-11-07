@@ -114,39 +114,23 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'All equipment must be in the same lab' })
   }
 
-  // Check for time overlaps in the lab (any reservation for this lab, any equipment, overlapping time)
-  const overlappingLabReservations = await prisma.reservationEquipment.findFirst({
-    where: {
-      equipment: { labId },
-      reservation: {
-        startTime: { lt: end },
-        endTime: { gt: start },
-        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] }
-      }
-    }
-  })
-  if (overlappingLabReservations) {
-    throw createError({
-      statusCode: 409,
-      statusMessage: 'There is a conflicting reservation in this lab for the selected time'
-    })
-  }
-
   // Check for time overlaps for each equipment
-  const overlappingEquipment = await prisma.reservationEquipment.findFirst({
+  const overlappingEquipment = await prisma.reservationEquipment.findMany({
     where: {
       equipmentId: { in: equipmentIds },
       reservation: {
         startTime: { lt: end },
         endTime: { gt: start },
-        status: { in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS'] }
+        status: { in: ['PENDING', 'CONFIRMED'] }
       }
-    }
+    },
+    include: { equipment: true }
   })
-  if (overlappingEquipment) {
+  if (overlappingEquipment.length > 0) {
+    const itemsString = overlappingEquipment.map((oe) => oe.equipment.name).join(', ')
     throw createError({
       statusCode: 409,
-      statusMessage: 'One or more equipment items are already reserved for the selected time'
+      statusMessage: `The following equipment items are already reserved for the selected time: ${itemsString}`
     })
   }
 

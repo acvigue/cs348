@@ -1,6 +1,7 @@
 import prisma from '../../prisma'
 import { LabAvailability } from '~/generated/prisma/enums'
 import { parameters, responses } from '../../utils/openapi'
+import { computeEquipmentStatus } from '../../utils/equipmentStatus'
 
 defineRouteMeta({
   openAPI: {
@@ -47,7 +48,26 @@ export default defineEventHandler(async (event) => {
             id: true,
             name: true,
             type: true,
-            status: true
+            status: true,
+            reservationLinks: {
+              where: {
+                reservation: {
+                  status: 'CONFIRMED',
+                  endTime: {
+                    gte: new Date()
+                  }
+                }
+              },
+              select: {
+                reservation: {
+                  select: {
+                    status: true,
+                    startTime: true,
+                    endTime: true
+                  }
+                }
+              }
+            }
           }
         },
         _count: {
@@ -60,31 +80,34 @@ export default defineEventHandler(async (event) => {
     })
 
     // Compute LabAvailability enum: EMPTY (all available), FULL (all unavailable), IN_USE (some available)
-    const labsWithAvailability = await Promise.all(
-      labs.map(async (lab) => {
-        const equipmentIds = lab.equipment.map((e) => e.id)
-        let availableCount = 0
-        let unavailableCount = 0
-        if (equipmentIds.length > 0) {
-          availableCount = await prisma.equipment.count({
-            where: {
-              id: { in: equipmentIds },
-              status: 'AVAILABLE'
-            }
-          })
-          unavailableCount = equipmentIds.length - availableCount
-        }
-        let availability: LabAvailability = LabAvailability.EMPTY
-        if (availableCount === 0 && equipmentIds.length > 0) {
-          availability = LabAvailability.FULL
-        } else if (availableCount > 0 && unavailableCount > 0) {
-          availability = LabAvailability.IN_USE
-        } else if (availableCount === equipmentIds.length && equipmentIds.length > 0) {
-          availability = LabAvailability.EMPTY
-        }
-        return { ...lab, availability }
-      })
-    )
+    const currentTime = new Date()
+    const labsWithAvailability = labs.map((lab) => {
+      let availableCount = 0
+      let unavailableCount = 0
+
+      if (lab.equipment.length > 0) {
+        // Count equipment by computed status
+        lab.equipment.forEach((equipment) => {
+          const status = computeEquipmentStatus(equipment, currentTime)
+          if (status === 'AVAILABLE') {
+            availableCount++
+          } else {
+            unavailableCount++
+          }
+        })
+      }
+
+      let availability: LabAvailability = LabAvailability.EMPTY
+      if (availableCount === 0 && lab.equipment.length > 0) {
+        availability = LabAvailability.FULL
+      } else if (availableCount > 0 && unavailableCount > 0) {
+        availability = LabAvailability.IN_USE
+      } else if (availableCount === lab.equipment.length && lab.equipment.length > 0) {
+        availability = LabAvailability.EMPTY
+      }
+
+      return { ...lab, availability }
+    })
 
     return {
       labs: labsWithAvailability,

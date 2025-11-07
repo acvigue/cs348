@@ -19,7 +19,8 @@ defineRouteMeta({
                   type: 'object',
                   properties: {
                     id: { type: 'number' },
-                    email: { type: 'string', format: 'email' }
+                    email: { type: 'string', format: 'email' },
+                    role: { type: 'string', enum: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] }
                   }
                 }
               }
@@ -44,7 +45,8 @@ export default defineEventHandler(async (event) => {
     status: 200,
     body: {
       id: event.context.user.id,
-      email: event.context.user.email
+      email: event.context.user.email,
+      role: event.context.user.role
     }
   }
 })

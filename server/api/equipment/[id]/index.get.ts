@@ -1,11 +1,13 @@
 import prisma from '../../../prisma'
 import { parameters, responses } from '../../../utils/openapi'
+import { addComputedStatus } from '../../../utils/equipmentStatus'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Equipment'],
     summary: 'Get equipment by ID',
-    description: 'Retrieve detailed information about a specific equipment item',
+    description:
+      'Retrieve detailed information about a specific equipment item. Status is computed based on current reservations.',
     parameters: [parameters.id],
     responses: {
       200: {
@@ -75,9 +77,12 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Add computed status
+    const equipmentWithStatus = addComputedStatus(equipment)
+
     return {
       status: 200,
-      body: equipment
+      body: equipmentWithStatus
     }
   } catch (error) {
     // Re-throw createError instances

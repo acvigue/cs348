@@ -79,7 +79,7 @@ export default defineEventHandler(async (event) => {
           where: {
             reservation: {
               status: {
-                in: ['PENDING', 'CONFIRMED', 'IN_PROGRESS']
+                in: ['PENDING', 'CONFIRMED']
               }
             }
           }

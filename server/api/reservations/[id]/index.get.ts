@@ -1,12 +1,15 @@
 import prisma from '../../../prisma'
 import { isAdmin } from '../../../middleware/session'
 import { parameters, responses } from '../../../utils/openapi'
+import { addComputedStatus } from '../../../utils/equipmentStatus'
+import { addComputedReservationStatus } from '../../../utils/reservationStatus'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Reservations'],
     summary: 'Get reservation by ID',
-    description: 'Retrieve detailed information about a specific reservation',
+    description:
+      'Retrieve detailed information about a specific reservation. Equipment status and reservation status are computed based on current time and reservations.',
     security: [{ sessionAuth: [] }],
     parameters: [parameters.id],
     responses: {
@@ -41,7 +44,30 @@ export default defineEventHandler(async (event) => {
     include: {
       equipment: {
         include: {
-          equipment: true
+          equipment: {
+            include: {
+              lab: true,
+              reservationLinks: {
+                where: {
+                  reservation: {
+                    status: 'CONFIRMED',
+                    endTime: {
+                      gte: new Date()
+                    }
+                  }
+                },
+                select: {
+                  reservation: {
+                    select: {
+                      status: true,
+                      startTime: true,
+                      endTime: true
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       user: true
@@ -51,5 +77,15 @@ export default defineEventHandler(async (event) => {
   if (!isAdmin(user) && reservation.userId !== user.id) {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
-  return { reservation }
+
+  // Add computed status to equipment and reservation
+  const reservationWithComputedStatus = addComputedReservationStatus({
+    ...reservation,
+    equipment: reservation.equipment.map((eq) => ({
+      ...eq,
+      equipment: addComputedStatus(eq.equipment)
+    }))
+  })
+
+  return { reservation: reservationWithComputedStatus }
 })

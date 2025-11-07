@@ -1,11 +1,13 @@
 import prisma from '../../../prisma'
 import { parameters, responses } from '../../../utils/openapi'
+import { addComputedStatusToMany } from '../../../utils/equipmentStatus'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Equipment'],
     summary: 'Get equipment by lab',
-    description: 'Retrieve all equipment in a specific lab',
+    description:
+      'Retrieve all equipment in a specific lab. Status is computed based on current reservations.',
     parameters: [parameters.labId],
     responses: {
       200: {
@@ -70,9 +72,7 @@ export default defineEventHandler(async (event) => {
         reservationLinks: {
           where: {
             reservation: {
-              status: {
-                in: ['CONFIRMED', 'IN_PROGRESS']
-              },
+              status: 'CONFIRMED',
               endTime: {
                 gte: new Date()
               }
@@ -97,11 +97,14 @@ export default defineEventHandler(async (event) => {
       }
     })
 
+    // Add computed status to each equipment
+    const equipmentWithStatus = addComputedStatusToMany(equipment)
+
     return {
       status: 200,
       body: {
         lab,
-        equipment
+        equipment: equipmentWithStatus
       }
     }
   } catch (error) {

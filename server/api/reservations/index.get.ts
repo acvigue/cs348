@@ -1,13 +1,15 @@
 import prisma from '../../prisma'
 import { isAdmin } from '../../middleware/session'
 import { parameters, responses } from '../../utils/openapi'
+import { addComputedStatus } from '../../utils/equipmentStatus'
+import { addComputedReservationStatusToMany } from '../../utils/reservationStatus'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Reservations'],
     summary: 'List reservations',
     description:
-      'Retrieve a paginated list of reservations. Admins see all, users see only their own.',
+      'Retrieve a paginated list of reservations. Admins see all, users see only their own. Equipment status and reservation status are computed based on current time and reservations.',
     security: [{ sessionAuth: [] }],
     parameters: [parameters.page, parameters.resultsPerPage],
     responses: {
@@ -53,15 +55,50 @@ export default defineEventHandler(async (event) => {
     include: {
       equipment: {
         include: {
-          equipment: true
+          equipment: {
+            include: {
+              lab: true,
+              reservationLinks: {
+                where: {
+                  reservation: {
+                    status: 'CONFIRMED',
+                    endTime: {
+                      gte: new Date()
+                    }
+                  }
+                },
+                select: {
+                  reservation: {
+                    select: {
+                      status: true,
+                      startTime: true,
+                      endTime: true
+                    }
+                  }
+                }
+              }
+            }
+          }
         }
       },
       user: true
     },
     orderBy: { startTime: 'desc' }
   })
+
+  // Add computed status to equipment and reservations
+  const reservationsWithComputedStatus = addComputedReservationStatusToMany(
+    reservations.map((reservation) => ({
+      ...reservation,
+      equipment: reservation.equipment.map((eq) => ({
+        ...eq,
+        equipment: addComputedStatus(eq.equipment)
+      }))
+    }))
+  )
+
   return {
-    reservations,
+    reservations: reservationsWithComputedStatus,
     pagination: {
       page: pageNum,
       total_pages,

@@ -91,22 +91,18 @@ export default defineEventHandler(async (event) => {
             }
           }
         },
-        status: {
-          in: ['CONFIRMED', 'IN_PROGRESS']
-        },
+        status: 'CONFIRMED',
         endTime: {
           gte: new Date()
         }
       }
     })
 
-    // Calculate utilization rate (simplified - active reservations vs total equipment)
+    // Calculate utilization rate (simplified - active reservations vs operational equipment)
     const totalEquipment = await prisma.equipment.count({
       where: {
         labId: Number(labId),
-        status: {
-          in: ['AVAILABLE', 'IN_USE']
-        }
+        status: 'OPERATIONAL'
       }
     })
 

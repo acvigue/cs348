@@ -57,7 +57,7 @@ model Equipment {
   name         String
   type         String
   serialNumber String        @unique
-  status       EquipmentStatus @default(AVAILABLE)
+  status       EquipmentStatus @default(OPERATIONAL)
   description  String?
   labId        Int
   lab          Lab           @relation(fields: [labId], references: [id], onDelete: Cascade)
@@ -103,8 +103,7 @@ enum UserRole {
 }
 
 enum EquipmentStatus {
-  AVAILABLE
-  IN_USE
+  OPERATIONAL
   MAINTENANCE
   OUT_OF_ORDER
 }
@@ -112,8 +111,6 @@ enum EquipmentStatus {
 enum ReservationStatus {
   PENDING
   CONFIRMED
-  IN_PROGRESS
-  COMPLETED
   CANCELLED
 }
 

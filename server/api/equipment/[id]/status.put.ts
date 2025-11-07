@@ -1,14 +1,14 @@
 import prisma from '../../../prisma'
 import { isAdmin } from '../../../middleware/session'
-import { EquipmentStatus } from '~/generated/prisma/enums'
 import { parameters, responses } from '../../../utils/openapi'
+import { isStorableStatus } from '../../../utils/equipmentStatus'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Equipment'],
     summary: 'Update equipment status',
     description:
-      'Update equipment status. Admins can set any status. Users can only set IN_USE/AVAILABLE if they have an active reservation.',
+      'Update equipment operational status. Only OPERATIONAL, MAINTENANCE, and OUT_OF_ORDER statuses can be set. AVAILABLE and IN_USE are computed based on reservations. Requires ADMIN or INSTRUCTOR role.',
     security: [{ sessionAuth: [] }],
     parameters: [parameters.id],
     requestBody: {
@@ -21,7 +21,7 @@ defineRouteMeta({
             properties: {
               status: {
                 type: 'string',
-                enum: ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'OUT_OF_ORDER']
+                enum: ['OPERATIONAL', 'MAINTENANCE', 'OUT_OF_ORDER']
               }
             }
           }
@@ -59,43 +59,26 @@ export default defineEventHandler(async (event) => {
 
   const body = await readBody(event)
   const { status } = body
-  if (!status || !Object.values(EquipmentStatus).includes(status)) {
-    throw createError({ statusCode: 400, statusMessage: 'Invalid status' })
+
+  if (!status || !isStorableStatus(status)) {
+    throw createError({
+      statusCode: 400,
+      statusMessage:
+        'Invalid status. Only OPERATIONAL, MAINTENANCE, and OUT_OF_ORDER can be set. AVAILABLE and IN_USE are computed based on reservations.'
+    })
   }
 
-  // Get equipment and labId
+  // Get equipment
   const equipment = await prisma.equipment.findUnique({ where: { id: Number(equipmentId) } })
   if (!equipment) {
     throw createError({ statusCode: 404, statusMessage: 'Equipment not found' })
   }
 
-  // Admins can set any status
-  if (isAdmin(user)) {
-    await prisma.equipment.update({ where: { id: Number(equipmentId) }, data: { status } })
-    return { success: true }
-  }
-
-  // Users can only set IN_USE or AVAILABLE if they have a confirmed reservation for this equipment in this lab and current time is within reservation
-  if (![EquipmentStatus.IN_USE, EquipmentStatus.AVAILABLE].includes(status)) {
-    throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
-  }
-
-  const now = new Date()
-  const reservationLink = await prisma.reservationEquipment.findFirst({
-    where: {
-      equipmentId: Number(equipmentId),
-      reservation: {
-        userId: user.id,
-        startTime: { lte: now },
-        endTime: { gte: now },
-        status: 'CONFIRMED'
-      }
-    }
-  })
-  if (!reservationLink) {
+  // Only admins and instructors can update equipment status
+  if (!isAdmin(user) && user.role !== 'INSTRUCTOR') {
     throw createError({
       statusCode: 403,
-      statusMessage: 'No valid reservation for this equipment at this time'
+      statusMessage: 'Only administrators and instructors can update equipment status'
     })
   }
 

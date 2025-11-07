@@ -95,8 +95,14 @@ export const schemas = {
       serialNumber: { type: 'string', description: 'Serial number' },
       status: {
         type: 'string',
-        enum: ['AVAILABLE', 'IN_USE', 'MAINTENANCE', 'OUT_OF_ORDER'],
-        description: 'Equipment status'
+        enum: ['OPERATIONAL', 'MAINTENANCE', 'OUT_OF_ORDER'],
+        description: 'Equipment operational status (stored in database)'
+      },
+      computedStatus: {
+        type: 'string',
+        enum: ['AVAILABLE', 'IN_USE', 'OPERATIONAL', 'MAINTENANCE', 'OUT_OF_ORDER'],
+        description:
+          'Computed equipment status. AVAILABLE/IN_USE are computed based on active reservations. OPERATIONAL/MAINTENANCE/OUT_OF_ORDER come from the database.'
       },
       description: { type: 'string', nullable: true, description: 'Equipment description' },
       labId: { type: 'number', description: 'Lab ID where equipment is located' },

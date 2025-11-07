@@ -59,7 +59,7 @@ async function main() {
         name: 'Digital Oscilloscope',
         type: 'Measurement',
         serialNumber: 'OSC-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Tektronix MSO64 4-channel oscilloscope, 1 GHz bandwidth',
         labId: labs[0].id
       }
@@ -69,7 +69,7 @@ async function main() {
         name: 'Function Generator',
         type: 'Signal Generation',
         serialNumber: 'FG-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Keysight 33500B series waveform generator, 30 MHz',
         labId: labs[0].id
       }
@@ -79,7 +79,7 @@ async function main() {
         name: 'Digital Multimeter',
         type: 'Measurement',
         serialNumber: 'DMM-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Fluke 87V industrial multimeter with temperature probe',
         labId: labs[0].id
       }
@@ -89,7 +89,7 @@ async function main() {
         name: 'DC Power Supply',
         type: 'Power',
         serialNumber: 'PS-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Keysight E3631A triple output DC power supply',
         labId: labs[0].id
       }
@@ -101,7 +101,7 @@ async function main() {
         name: 'Spectrum Analyzer',
         type: 'RF Measurement',
         serialNumber: 'SA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Rohde & Schwarz FSW signal analyzer, 50 GHz',
         labId: labs[1].id
       }
@@ -111,7 +111,7 @@ async function main() {
         name: 'Vector Network Analyzer',
         type: 'RF Measurement',
         serialNumber: 'VNA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Keysight E5071C 4-port VNA, 20 GHz',
         labId: labs[1].id
       }
@@ -121,7 +121,7 @@ async function main() {
         name: 'Signal Generator',
         type: 'RF Signal Generation',
         serialNumber: 'SG-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Rohde & Schwarz SMW200A vector signal generator, 20 GHz',
         labId: labs[1].id
       }
@@ -143,7 +143,7 @@ async function main() {
         name: 'Universal Testing Machine',
         type: 'Mechanical Testing',
         serialNumber: 'UTM-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Instron 5985 universal testing system, 250 kN capacity',
         labId: labs[2].id
       }
@@ -153,7 +153,7 @@ async function main() {
         name: 'Hardness Tester',
         type: 'Material Analysis',
         serialNumber: 'HT-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Wilson VH3300 Vickers hardness tester',
         labId: labs[2].id
       }
@@ -173,7 +173,7 @@ async function main() {
         name: 'Microscope',
         type: 'Imaging',
         serialNumber: 'MIC-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Olympus BX53M metallurgical microscope with camera',
         labId: labs[2].id
       }
@@ -185,7 +185,7 @@ async function main() {
         name: 'Laser System',
         type: 'Laser',
         serialNumber: 'LAS-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Coherent Verdi V-18 DPSS laser, 532 nm, 18W',
         labId: labs[3].id
       }
@@ -195,7 +195,7 @@ async function main() {
         name: 'Optical Spectrum Analyzer',
         type: 'Optical Measurement',
         serialNumber: 'OSA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Yokogawa AQ6370D optical spectrum analyzer, 1200-2400 nm',
         labId: labs[3].id
       }
@@ -205,7 +205,7 @@ async function main() {
         name: 'Beam Profiler',
         type: 'Optical Measurement',
         serialNumber: 'BP-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Thorlabs BC106N-VIS beam profiler camera',
         labId: labs[3].id
       }
@@ -217,7 +217,7 @@ async function main() {
         name: 'FPGA Development Board',
         type: 'Development Hardware',
         serialNumber: 'FPGA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Xilinx Zynq UltraScale+ ZCU102 evaluation kit',
         labId: labs[4].id
       }
@@ -227,7 +227,7 @@ async function main() {
         name: 'Logic Analyzer',
         type: 'Digital Measurement',
         serialNumber: 'LA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Keysight 16902B logic analyzer with 68 channels',
         labId: labs[4].id
       }
@@ -237,7 +237,7 @@ async function main() {
         name: 'Embedded Development Kit',
         type: 'Development Hardware',
         serialNumber: 'EDK-001',
-        status: 'IN_USE',
+        status: 'OUT_OF_ORDER',
         description: 'STM32 Nucleo development ecosystem with various boards',
         labId: labs[4].id
       }
@@ -247,7 +247,7 @@ async function main() {
         name: 'Protocol Analyzer',
         type: 'Digital Measurement',
         serialNumber: 'PA-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Keysight U4431A USB 3.0 protocol analyzer',
         labId: labs[4].id
       }
@@ -257,7 +257,7 @@ async function main() {
         name: '3D Printer',
         type: 'Manufacturing',
         serialNumber: '3DP-001',
-        status: 'AVAILABLE',
+        status: 'OPERATIONAL',
         description: 'Ultimaker S5 professional 3D printer with dual extrusion',
         labId: labs[4].id
       }

@@ -1,6 +1,7 @@
 import prisma from '../../../prisma'
 import { LabAvailability } from '~/generated/prisma/enums'
 import { parameters, responses } from '../../../utils/openapi'
+import { addComputedStatusToMany, computeEquipmentStatus } from '../../../utils/equipmentStatus'
 
 defineRouteMeta({
   openAPI: {
@@ -51,9 +52,7 @@ export default defineEventHandler(async (event) => {
             reservationLinks: {
               where: {
                 reservation: {
-                  status: {
-                    in: ['CONFIRMED', 'IN_PROGRESS']
-                  },
+                  status: 'CONFIRMED',
                   endTime: {
                     gte: new Date()
                   }
@@ -89,30 +88,38 @@ export default defineEventHandler(async (event) => {
       })
     }
 
+    // Add computed status to equipment
+    const equipmentWithStatus = addComputedStatusToMany(lab.equipment)
+
     // Compute LabAvailability enum: EMPTY (all available), FULL (all unavailable), IN_USE (some available)
-    const equipmentIds = lab.equipment.map((e) => e.id)
+    const currentTime = new Date()
     let availableCount = 0
     let unavailableCount = 0
-    if (equipmentIds.length > 0) {
-      availableCount = await prisma.equipment.count({
-        where: {
-          id: { in: equipmentIds },
-          status: 'AVAILABLE'
+
+    if (lab.equipment.length > 0) {
+      // Count equipment by computed status
+      lab.equipment.forEach((equipment) => {
+        const status = computeEquipmentStatus(equipment, currentTime)
+        if (status === 'AVAILABLE') {
+          availableCount++
+        } else {
+          unavailableCount++
         }
       })
-      unavailableCount = equipmentIds.length - availableCount
     }
+
     let availability: LabAvailability = LabAvailability.EMPTY
-    if (availableCount === 0 && equipmentIds.length > 0) {
+    if (availableCount === 0 && lab.equipment.length > 0) {
       availability = LabAvailability.FULL
     } else if (availableCount > 0 && unavailableCount > 0) {
       availability = LabAvailability.IN_USE
-    } else if (availableCount === equipmentIds.length && equipmentIds.length > 0) {
+    } else if (availableCount === lab.equipment.length && lab.equipment.length > 0) {
       availability = LabAvailability.EMPTY
     }
+
     return {
       status: 200,
-      body: { ...lab, availability }
+      body: { ...lab, equipment: equipmentWithStatus, availability }
     }
   } catch (error) {
     // Re-throw createError instances
