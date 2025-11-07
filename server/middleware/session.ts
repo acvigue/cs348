@@ -34,3 +34,7 @@ export default defineEventHandler(async (event) => {
 export function isAdmin(user: User): boolean {
   return user.role === 'ADMIN'
 }
+
+export function isInstructorOrAdmin(user: User): boolean {
+  return user.role === 'ADMIN' || user.role === 'INSTRUCTOR'
+}
