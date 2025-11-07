@@ -99,10 +99,11 @@ const deleteLab = async () => {
     deleteModalOpen.value = false
     labToDelete.value = null
     await refresh()
-  } catch (error: any) {
+  } catch (error) {
     toast.add({
       title: 'Error',
-      description: error.data?.message || 'Failed to delete lab',
+      description:
+        (error as { data?: { message?: string } })?.data?.message || 'Failed to delete lab',
       color: 'error'
     })
   } finally {
@@ -144,7 +145,6 @@ const deleteLab = async () => {
           v-for="lab in filteredLabs"
           :key="lab.id"
           class="hover:shadow-lg transition-shadow cursor-pointer"
-          :ui="{ body: { padding: 'sm:p-6' } }"
           @click="!canManageLabs && navigateTo(`/labs/${lab.id}`)"
         >
           <div class="flex items-start justify-between">
@@ -216,7 +216,11 @@ const deleteLab = async () => {
 
       <!-- Pagination -->
       <div v-if="pagination && pagination.total_pages > 1" class="mt-8 flex justify-center">
-        <UPagination v-model="page" :total="pagination.total_results" :per-page="perPage" />
+        <UPagination
+          v-model:page="page"
+          :total="pagination.total_results"
+          :items-per-page="perPage"
+        />
       </div>
     </UContainer>
 

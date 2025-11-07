@@ -2,353 +2,384 @@ import { PrismaClient } from '../app/generated/prisma/client'
 
 const prisma = new PrismaClient()
 
+// Helper function to generate random date within a range
+function randomDate(start: Date, end: Date): Date {
+  return new Date(start.getTime() + Math.random() * (end.getTime() - start.getTime()))
+}
+
+// Helper function to generate random time slot (9 AM - 5 PM)
+function randomTimeSlot(date: Date): { start: Date; end: Date } {
+  const startHour = 9 + Math.floor(Math.random() * 7) // 9 AM to 3 PM
+  const duration = 1 + Math.floor(Math.random() * 3) // 1-3 hours
+  const start = new Date(date)
+  start.setHours(startHour, 0, 0, 0)
+  const end = new Date(start)
+  end.setHours(startHour + duration, 0, 0, 0)
+  return { start, end }
+}
+
 async function main() {
   console.log('🌱 Starting database seeding...')
 
-  // Create Labs
-  const labs = await Promise.all([
-    prisma.lab.create({
-      data: {
-        building: 'Engineering Building A',
-        roomNumber: '101',
-        capacity: 30,
-        description: 'General Electronics Laboratory with basic measurement equipment'
-      }
-    }),
-    prisma.lab.create({
-      data: {
-        building: 'Engineering Building A',
-        roomNumber: '201',
-        capacity: 25,
-        description: 'RF and Microwave Laboratory with high-frequency test equipment'
-      }
-    }),
-    prisma.lab.create({
-      data: {
-        building: 'Engineering Building B',
-        roomNumber: '105',
-        capacity: 20,
-        description: 'Materials Testing Laboratory with mechanical testing equipment'
-      }
-    }),
-    prisma.lab.create({
-      data: {
-        building: 'Engineering Building B',
-        roomNumber: '203',
-        capacity: 15,
-        description: 'Optics and Photonics Laboratory with laser and optical equipment'
-      }
-    }),
-    prisma.lab.create({
-      data: {
-        building: 'Engineering Building C',
-        roomNumber: '150',
-        capacity: 35,
-        description: 'Digital Systems Laboratory with computers and development boards'
-      }
-    })
-  ])
+  // Create 10 Labs
+  const labBuildings = [
+    'Engineering Building A',
+    'Engineering Building B',
+    'Engineering Building C',
+    'Science Building',
+    'Research Center'
+  ]
+  const labDescriptions = [
+    'General Electronics Laboratory with basic measurement equipment',
+    'RF and Microwave Laboratory with high-frequency test equipment',
+    'Materials Testing Laboratory with mechanical testing equipment',
+    'Optics and Photonics Laboratory with laser and optical equipment',
+    'Digital Systems Laboratory with computers and development boards',
+    'Advanced Communications Laboratory with network testing equipment',
+    'Control Systems Laboratory with robotics and automation equipment',
+    'Power Electronics Laboratory with high-voltage testing equipment',
+    'Biomedical Engineering Laboratory with medical device testing equipment',
+    'Nanotechnology Laboratory with precision measurement instruments'
+  ]
+
+  const labs = []
+  for (let i = 0; i < 10; i++) {
+    const building = labBuildings[i % labBuildings.length]
+    const roomNumber = String(100 + i * 10 + (i % 3))
+    const capacity = 15 + Math.floor(Math.random() * 25) // 15-40 capacity
+    labs.push(
+      await prisma.lab.create({
+        data: {
+          building,
+          roomNumber,
+          capacity,
+          description: labDescriptions[i]
+        }
+      })
+    )
+  }
 
   console.log(`✅ Created ${labs.length} labs`)
 
-  // Create Equipment for each lab
-  const equipment = await Promise.all([
-    // Electronics Lab Equipment
-    prisma.equipment.create({
-      data: {
-        name: 'Digital Oscilloscope',
-        type: 'Measurement',
-        serialNumber: 'OSC-001',
-        status: 'OPERATIONAL',
-        description: 'Tektronix MSO64 4-channel oscilloscope, 1 GHz bandwidth',
-        labId: labs[0].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Function Generator',
-        type: 'Signal Generation',
-        serialNumber: 'FG-001',
-        status: 'OPERATIONAL',
-        description: 'Keysight 33500B series waveform generator, 30 MHz',
-        labId: labs[0].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Digital Multimeter',
-        type: 'Measurement',
-        serialNumber: 'DMM-001',
-        status: 'OPERATIONAL',
-        description: 'Fluke 87V industrial multimeter with temperature probe',
-        labId: labs[0].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'DC Power Supply',
-        type: 'Power',
-        serialNumber: 'PS-001',
-        status: 'OPERATIONAL',
-        description: 'Keysight E3631A triple output DC power supply',
-        labId: labs[0].id
-      }
-    }),
+  // Create 100 Equipment items
+  const equipmentTypes = [
+    {
+      name: 'Digital Oscilloscope',
+      type: 'Measurement',
+      description: 'High-bandwidth oscilloscope for signal analysis'
+    },
+    {
+      name: 'Function Generator',
+      type: 'Signal Generation',
+      description: 'Arbitrary waveform generator'
+    },
+    {
+      name: 'Spectrum Analyzer',
+      type: 'RF Measurement',
+      description: 'Frequency domain signal analyzer'
+    },
+    {
+      name: 'Vector Network Analyzer',
+      type: 'RF Measurement',
+      description: 'S-parameter measurement system'
+    },
+    {
+      name: 'Logic Analyzer',
+      type: 'Digital Measurement',
+      description: 'Multi-channel digital signal analyzer'
+    },
+    { name: 'DC Power Supply', type: 'Power', description: 'Programmable DC power source' },
+    {
+      name: 'Digital Multimeter',
+      type: 'Measurement',
+      description: 'Precision multimeter with data logging'
+    },
+    { name: 'Signal Generator', type: 'Signal Generation', description: 'RF signal source' },
+    {
+      name: 'Protocol Analyzer',
+      type: 'Digital Measurement',
+      description: 'Protocol analysis and debugging tool'
+    },
+    { name: '3D Printer', type: 'Manufacturing', description: 'FDM 3D printing system' },
+    {
+      name: 'Laser System',
+      type: 'Laser',
+      description: 'Precision laser for research applications'
+    },
+    { name: 'Microscope', type: 'Imaging', description: 'High-resolution imaging system' },
+    {
+      name: 'FPGA Development Board',
+      type: 'Development Hardware',
+      description: 'FPGA prototyping platform'
+    },
+    {
+      name: 'Embedded Development Kit',
+      type: 'Development Hardware',
+      description: 'MCU development ecosystem'
+    },
+    {
+      name: 'Universal Testing Machine',
+      type: 'Mechanical Testing',
+      description: 'Material stress-strain testing'
+    },
+    {
+      name: 'Hardness Tester',
+      type: 'Material Analysis',
+      description: 'Material hardness measurement'
+    },
+    { name: 'Thermal Camera', type: 'Imaging', description: 'Infrared thermal imaging camera' },
+    { name: 'LCR Meter', type: 'Measurement', description: 'Impedance measurement system' },
+    {
+      name: 'Temperature Chamber',
+      type: 'Environmental Testing',
+      description: 'Environmental testing chamber'
+    },
+    { name: 'Soldering Station', type: 'Assembly', description: 'Precision soldering equipment' }
+  ]
 
-    // RF Lab Equipment
-    prisma.equipment.create({
-      data: {
-        name: 'Spectrum Analyzer',
-        type: 'RF Measurement',
-        serialNumber: 'SA-001',
-        status: 'OPERATIONAL',
-        description: 'Rohde & Schwarz FSW signal analyzer, 50 GHz',
-        labId: labs[1].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Vector Network Analyzer',
-        type: 'RF Measurement',
-        serialNumber: 'VNA-001',
-        status: 'OPERATIONAL',
-        description: 'Keysight E5071C 4-port VNA, 20 GHz',
-        labId: labs[1].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Signal Generator',
-        type: 'RF Signal Generation',
-        serialNumber: 'SG-001',
-        status: 'OPERATIONAL',
-        description: 'Rohde & Schwarz SMW200A vector signal generator, 20 GHz',
-        labId: labs[1].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'RF Power Meter',
-        type: 'RF Measurement',
-        serialNumber: 'PM-001',
-        status: 'MAINTENANCE',
-        description: 'Keysight E4417A EPM-P series power meter with sensor',
-        labId: labs[1].id
-      }
-    }),
+  const equipment = []
+  const statuses = [
+    'OPERATIONAL',
+    'OPERATIONAL',
+    'OPERATIONAL',
+    'OPERATIONAL',
+    'MAINTENANCE',
+    'OUT_OF_ORDER'
+  ]
 
-    // Materials Lab Equipment
-    prisma.equipment.create({
-      data: {
-        name: 'Universal Testing Machine',
-        type: 'Mechanical Testing',
-        serialNumber: 'UTM-001',
-        status: 'OPERATIONAL',
-        description: 'Instron 5985 universal testing system, 250 kN capacity',
-        labId: labs[2].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Hardness Tester',
-        type: 'Material Analysis',
-        serialNumber: 'HT-001',
-        status: 'OPERATIONAL',
-        description: 'Wilson VH3300 Vickers hardness tester',
-        labId: labs[2].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Fatigue Testing Machine',
-        type: 'Mechanical Testing',
-        serialNumber: 'FTM-001',
-        status: 'OUT_OF_ORDER',
-        description: 'MTS 810 servo-hydraulic fatigue testing system',
-        labId: labs[2].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Microscope',
-        type: 'Imaging',
-        serialNumber: 'MIC-001',
-        status: 'OPERATIONAL',
-        description: 'Olympus BX53M metallurgical microscope with camera',
-        labId: labs[2].id
-      }
-    }),
+  for (let i = 0; i < 100; i++) {
+    const template = equipmentTypes[i % equipmentTypes.length]
+    const labId = labs[i % 10].id
+    const serialPrefix = template.type.substring(0, 3).toUpperCase()
+    const status = statuses[Math.floor(Math.random() * statuses.length)]
 
-    // Optics Lab Equipment
-    prisma.equipment.create({
-      data: {
-        name: 'Laser System',
-        type: 'Laser',
-        serialNumber: 'LAS-001',
-        status: 'OPERATIONAL',
-        description: 'Coherent Verdi V-18 DPSS laser, 532 nm, 18W',
-        labId: labs[3].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Optical Spectrum Analyzer',
-        type: 'Optical Measurement',
-        serialNumber: 'OSA-001',
-        status: 'OPERATIONAL',
-        description: 'Yokogawa AQ6370D optical spectrum analyzer, 1200-2400 nm',
-        labId: labs[3].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Beam Profiler',
-        type: 'Optical Measurement',
-        serialNumber: 'BP-001',
-        status: 'OPERATIONAL',
-        description: 'Thorlabs BC106N-VIS beam profiler camera',
-        labId: labs[3].id
-      }
-    }),
-
-    // Digital Systems Lab Equipment
-    prisma.equipment.create({
-      data: {
-        name: 'FPGA Development Board',
-        type: 'Development Hardware',
-        serialNumber: 'FPGA-001',
-        status: 'OPERATIONAL',
-        description: 'Xilinx Zynq UltraScale+ ZCU102 evaluation kit',
-        labId: labs[4].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Logic Analyzer',
-        type: 'Digital Measurement',
-        serialNumber: 'LA-001',
-        status: 'OPERATIONAL',
-        description: 'Keysight 16902B logic analyzer with 68 channels',
-        labId: labs[4].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Embedded Development Kit',
-        type: 'Development Hardware',
-        serialNumber: 'EDK-001',
-        status: 'OUT_OF_ORDER',
-        description: 'STM32 Nucleo development ecosystem with various boards',
-        labId: labs[4].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: 'Protocol Analyzer',
-        type: 'Digital Measurement',
-        serialNumber: 'PA-001',
-        status: 'OPERATIONAL',
-        description: 'Keysight U4431A USB 3.0 protocol analyzer',
-        labId: labs[4].id
-      }
-    }),
-    prisma.equipment.create({
-      data: {
-        name: '3D Printer',
-        type: 'Manufacturing',
-        serialNumber: '3DP-001',
-        status: 'OPERATIONAL',
-        description: 'Ultimaker S5 professional 3D printer with dual extrusion',
-        labId: labs[4].id
-      }
-    })
-  ])
+    equipment.push(
+      await prisma.equipment.create({
+        data: {
+          name: `${template.name} ${Math.floor(i / equipmentTypes.length) + 1}`,
+          type: template.type,
+          serialNumber: `${serialPrefix}-${String(i + 1).padStart(4, '0')}`,
+          status,
+          description: template.description,
+          labId
+        }
+      })
+    )
+  }
 
   console.log(`✅ Created ${equipment.length} equipment items`)
 
-  // Create a sample admin user if it doesn't exist
-  await prisma.user.upsert({
-    where: { email: 'admin@lab.edu' },
-    update: {},
-    create: {
-      email: 'admin@lab.edu',
-      password: '$2b$10$K7L/8Y1t85haFj/xi.LjauSBjXinbn9IP.TtSfIm/16trCV4otopK', // 'password123'
-      name: 'Lab Administrator',
-      role: 'ADMIN'
-    }
-  })
+  // Create 20 Users (1 admin, 3 instructors, 16 students)
+  const firstNames = [
+    'Alice',
+    'Bob',
+    'Charlie',
+    'Diana',
+    'Ethan',
+    'Fiona',
+    'George',
+    'Hannah',
+    'Ian',
+    'Julia',
+    'Kevin',
+    'Laura',
+    'Michael',
+    'Nina',
+    'Oscar',
+    'Paula',
+    'Quinn',
+    'Rachel',
+    'Sam',
+    'Tina'
+  ]
+  const lastNames = [
+    'Johnson',
+    'Smith',
+    'Williams',
+    'Brown',
+    'Jones',
+    'Garcia',
+    'Miller',
+    'Davis',
+    'Rodriguez',
+    'Martinez',
+    'Hernandez',
+    'Lopez',
+    'Gonzalez',
+    'Wilson',
+    'Anderson',
+    'Thomas',
+    'Taylor',
+    'Moore',
+    'Jackson',
+    'Martin'
+  ]
 
-  // Create sample student users
-  const studentUsers = await Promise.all([
-    prisma.user.upsert({
-      where: { email: 'student1@lab.edu' },
+  const users = []
+
+  // Admin user
+  users.push(
+    await prisma.user.upsert({
+      where: { email: 'admin@lab.edu' },
       update: {},
       create: {
-        email: 'student1@lab.edu',
-        password: '$2b$10$K7L/8Y1t85haFj/xi.LjauSBjXinbn9IP.TtSfIm/16trCV4otopK', // 'password123'
-        name: 'Alice Johnson',
-        role: 'STUDENT'
-      }
-    }),
-    prisma.user.upsert({
-      where: { email: 'student2@lab.edu' },
-      update: {},
-      create: {
-        email: 'student2@lab.edu',
-        password: '$2b$10$K7L/8Y1t85haFj/xi.LjauSBjXinbn9IP.TtSfIm/16trCV4otopK', // 'password123'
-        name: 'Bob Smith',
-        role: 'STUDENT'
+        email: 'admin@lab.edu',
+        password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
+        name: 'Lab Administrator',
+        role: 'ADMIN'
       }
     })
-  ])
+  )
 
-  console.log(`✅ Created admin user and ${studentUsers.length} student users`)
+  // Instructor users
+  for (let i = 0; i < 3; i++) {
+    users.push(
+      await prisma.user.upsert({
+        where: { email: `instructor${i + 1}@lab.edu` },
+        update: {},
+        create: {
+          email: `instructor${i + 1}@lab.edu`,
+          password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
+          name: `${firstNames[i]} ${lastNames[i]}`,
+          role: 'INSTRUCTOR'
+        }
+      })
+    )
+  }
 
-  // Create some sample reservations
+  // Student users
+  for (let i = 0; i < 16; i++) {
+    users.push(
+      await prisma.user.upsert({
+        where: { email: `student${i + 1}@lab.edu` },
+        update: {},
+        create: {
+          email: `student${i + 1}@lab.edu`,
+          password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
+          name: `${firstNames[i + 3]} ${lastNames[i + 3]}`,
+          role: 'STUDENT'
+        }
+      })
+    )
+  }
+
+  console.log(`✅ Created ${users.length} users (1 admin, 3 instructors, 16 students)`)
+
+  // Create reservations: 60 days of history + 14 days of future events
+  const reservationPurposes = [
+    'Circuit Analysis Lab Assignment',
+    'RF Filter Design Project',
+    'Materials Characterization Experiment',
+    'Digital Signal Processing Lab',
+    'Power Electronics Testing',
+    'Embedded Systems Project',
+    'Optical Communication Research',
+    'Microcontroller Programming',
+    'Network Protocol Analysis',
+    'Sensor Calibration',
+    'PCB Testing and Debugging',
+    'Antenna Design Verification',
+    'Control Systems Lab',
+    'FPGA Implementation',
+    'Thermal Analysis Study',
+    'Signal Integrity Testing',
+    'Data Acquisition Setup',
+    'Prototype Manufacturing',
+    'Senior Capstone Project',
+    'Research Experiment'
+  ]
+
   const now = new Date()
-  const tomorrow = new Date(now)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const nextWeek = new Date(now)
-  nextWeek.setDate(nextWeek.getDate() + 7)
+  const startDate = new Date(now)
+  startDate.setDate(startDate.getDate() - 60) // 60 days ago
+  const endDate = new Date(now)
+  endDate.setDate(endDate.getDate() + 14) // 14 days in the future
 
-  const reservations = await Promise.all([
-    prisma.reservation.create({
+  const reservations = []
+  const studentUsers = users.filter((u) => u.role === 'STUDENT')
+
+  // Generate historical reservations (60 days back) - all CONFIRMED (completed)
+  for (let i = 0; i < 200; i++) {
+    const reservationDate = randomDate(startDate, now)
+    const { start, end } = randomTimeSlot(reservationDate)
+    const user = studentUsers[Math.floor(Math.random() * studentUsers.length)]
+    const purpose = reservationPurposes[Math.floor(Math.random() * reservationPurposes.length)]
+
+    const reservation = await prisma.reservation.create({
       data: {
-        userId: studentUsers[0].id,
-        startTime: new Date(tomorrow.setHours(10, 0, 0, 0)),
-        endTime: new Date(tomorrow.setHours(12, 0, 0, 0)),
-        purpose: 'Circuit Analysis Lab Assignment',
+        userId: user.id,
+        startTime: start,
+        endTime: end,
+        purpose,
         status: 'CONFIRMED',
-        notes: 'Need to measure AC/DC characteristics of amplifier circuit'
-      }
-    }),
-    prisma.reservation.create({
-      data: {
-        userId: studentUsers[1].id,
-        startTime: new Date(nextWeek.setHours(14, 0, 0, 0)),
-        endTime: new Date(nextWeek.setHours(16, 0, 0, 0)),
-        purpose: 'RF Filter Design Project',
-        status: 'PENDING',
-        notes: 'Testing bandpass filter frequency response'
+        notes: `Historical reservation - completed on ${start.toLocaleDateString()}`
       }
     })
-  ])
+    reservations.push(reservation)
 
-  // Link equipment to reservations via ReservationEquipment
-  await prisma.reservationEquipment.create({
-    data: {
-      reservationId: reservations[0].id,
-      equipmentId: equipment[0].id // Digital Oscilloscope
+    // Add 1-3 equipment items to each reservation
+    const numEquipment = 1 + Math.floor(Math.random() * 3)
+    const availableEquipment = equipment.filter((e) => e.status === 'OPERATIONAL')
+    const selectedEquipment = []
+    for (let j = 0; j < numEquipment; j++) {
+      const eq = availableEquipment[Math.floor(Math.random() * availableEquipment.length)]
+      if (!selectedEquipment.includes(eq.id)) {
+        selectedEquipment.push(eq.id)
+        await prisma.reservationEquipment.create({
+          data: {
+            reservationId: reservation.id,
+            equipmentId: eq.id
+          }
+        })
+      }
     }
-  })
-  await prisma.reservationEquipment.create({
-    data: {
-      reservationId: reservations[1].id,
-      equipmentId: equipment[4].id // Spectrum Analyzer
-    }
-  })
+  }
 
-  console.log(`✅ Created ${reservations.length} sample reservations`)
+  console.log(`✅ Created ${reservations.length} historical reservations`)
+
+  // Generate future reservations (14 days forward) - mix of CONFIRMED and PENDING
+  const futureReservationCount = 80
+  for (let i = 0; i < futureReservationCount; i++) {
+    const reservationDate = randomDate(now, endDate)
+    const { start, end } = randomTimeSlot(reservationDate)
+    const user = studentUsers[Math.floor(Math.random() * studentUsers.length)]
+    const purpose = reservationPurposes[Math.floor(Math.random() * reservationPurposes.length)]
+
+    // 60% confirmed, 40% pending
+    const status = Math.random() < 0.6 ? 'CONFIRMED' : 'PENDING'
+
+    const reservation = await prisma.reservation.create({
+      data: {
+        userId: user.id,
+        startTime: start,
+        endTime: end,
+        purpose,
+        status,
+        notes: status === 'PENDING' ? 'Awaiting approval' : 'Approved and scheduled'
+      }
+    })
+    reservations.push(reservation)
+
+    // Add 1-3 equipment items to each reservation
+    const numEquipment = 1 + Math.floor(Math.random() * 3)
+    const availableEquipment = equipment.filter((e) => e.status === 'OPERATIONAL')
+    const selectedEquipment = []
+    for (let j = 0; j < numEquipment; j++) {
+      const eq = availableEquipment[Math.floor(Math.random() * availableEquipment.length)]
+      if (!selectedEquipment.includes(eq.id)) {
+        selectedEquipment.push(eq.id)
+        await prisma.reservationEquipment.create({
+          data: {
+            reservationId: reservation.id,
+            equipmentId: eq.id
+          }
+        })
+      }
+    }
+  }
+
+  console.log(`✅ Created ${futureReservationCount} future reservations (confirmed and pending)`)
+  console.log(`📊 Total reservations: ${reservations.length}`)
   console.log('🎉 Database seeding completed successfully!')
 }
 

@@ -229,7 +229,11 @@ const getLabNames = (reservation: {
 
       <!-- Pagination -->
       <div v-if="pagination && pagination.total_pages > 1" class="mt-8 flex justify-center">
-        <UPagination v-model="page" :page-count="perPage" :total="pagination.total_results" />
+        <UPagination
+          v-model:page="page"
+          :items-per-page="perPage"
+          :total="pagination.total_results"
+        />
       </div>
     </UContainer>
   </div>

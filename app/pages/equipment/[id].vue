@@ -188,6 +188,61 @@ const activeReservations = computed(() => {
     return ['CONFIRMED', 'IN_PROGRESS', 'PENDING'].includes(status) && endTime > new Date()
   })
 })
+
+// Utilization data
+const utilizationDays = ref(7)
+const utilizationDaysOptions = [
+  { label: 'Last 7 days', value: 7 },
+  { label: 'Last 14 days', value: 14 },
+  { label: 'Last 30 days', value: 30 },
+  { label: 'Last 60 days', value: 60 },
+  { label: 'Last 90 days', value: 90 }
+]
+
+const selectedUtilizationPeriod = computed({
+  get: () =>
+    utilizationDaysOptions.find((opt) => opt.value === utilizationDays.value) ||
+    utilizationDaysOptions[0],
+  set: (val) => {
+    if (val) utilizationDays.value = val.value
+  }
+})
+
+const { data: utilizationData } = await useFetch(`/api/equipment/${equipmentId}/utilization`, {
+  query: { days: utilizationDays },
+  watch: [utilizationDays]
+})
+
+const utilizationStats = computed(() => utilizationData.value?.body?.utilization)
+const timeline = computed(() => utilizationData.value?.body?.timeline || [])
+const utilizationStartDate = computed(() => utilizationData.value?.body?.startDate)
+const utilizationEndDate = computed(() => utilizationData.value?.body?.endDate)
+
+// Transform timeline data into segments for the GanttChart
+const ganttSegments = computed(() => {
+  return timeline.value.map((item) => ({
+    startTime: item.startTime,
+    endTime: item.endTime,
+    status: item.status,
+    label: item.purpose,
+    metadata: {
+      'Reservation ID': `#${item.reservationId}`,
+      User: item.user.email,
+      Status: item.status
+    }
+  }))
+})
+
+// Status configuration for the GANTT chart
+const statusConfig = {
+  PENDING: { color: '#f59e0b', label: 'Pending' },
+  CONFIRMED: { color: '#3b82f6', label: 'Reserved' },
+  IN_PROGRESS: { color: '#eab308', label: 'In Use' },
+  COMPLETED: { color: '#6b7280', label: 'Used' },
+  CANCELLED: { color: '#ef4444', label: 'Cancelled' }
+}
+
+const defaultStatus = { color: '#10b981', label: 'Available' }
 </script>
 
 <template>
@@ -400,6 +455,73 @@ const activeReservations = computed(() => {
               <p class="text-gray-600 dark:text-gray-400">
                 No active reservations for this equipment.
               </p>
+            </UCard>
+
+            <!-- Utilization Chart -->
+            <UCard>
+              <template #header>
+                <div class="flex items-center justify-between">
+                  <h2 class="text-xl font-semibold text-gray-900 dark:text-white">
+                    Utilization History
+                  </h2>
+                  <USelectMenu
+                    v-model="selectedUtilizationPeriod"
+                    :items="utilizationDaysOptions"
+                    value-attribute="value"
+                  />
+                </div>
+              </template>
+
+              <!-- Stats Summary -->
+              <div v-if="utilizationStats" class="mb-6 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Average Utilization
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                      {{ utilizationStats.utilizationPercentage.toFixed(1) }}%
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Reserved Time
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                      {{ Math.floor(utilizationStats.reservedMinutes / 60) }}h
+                      {{ utilizationStats.reservedMinutes % 60 }}m
+                    </div>
+                  </div>
+                  <div>
+                    <div class="text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Total Reservations
+                    </div>
+                    <div class="text-2xl font-bold text-gray-900 dark:text-white">
+                      {{ timeline.length }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Gantt Chart -->
+              <div v-if="ganttSegments.length > 0 && utilizationStartDate && utilizationEndDate">
+                <GanttChart
+                  :segments="ganttSegments"
+                  :start-date="utilizationStartDate"
+                  :end-date="utilizationEndDate"
+                  :status-config="statusConfig"
+                  :default-status="defaultStatus"
+                />
+              </div>
+              <div v-else-if="!timeline.length" class="text-center py-8">
+                <UIcon
+                  name="i-heroicons-calendar-days"
+                  class="w-12 h-12 text-gray-400 mx-auto mb-2"
+                />
+                <p class="text-gray-600 dark:text-gray-400">
+                  No reservations in the selected time period
+                </p>
+              </div>
             </UCard>
           </div>
 

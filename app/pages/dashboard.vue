@@ -32,12 +32,12 @@ const availableNow = computed(() => {
 })
 
 // Fetch reservations
-const {
-  data: reservationsData,
-  refresh: refreshReservations
-} = await useFetch('/api/reservations', {
-  query: { results_per_page: isInstructorOrAdmin.value ? 10 : 5 }
-})
+const { data: reservationsData, refresh: refreshReservations } = await useFetch(
+  '/api/reservations',
+  {
+    query: { results_per_page: isInstructorOrAdmin.value ? 10 : 5 }
+  }
+)
 
 const reservations = computed(() => {
   const allReservations = reservationsData.value?.reservations || []
@@ -146,7 +146,6 @@ const getLabBgClass = (availability: string) => {
       return 'bg-gray-50 dark:bg-gray-900/20'
   }
 }
-
 </script>
 
 <template>
@@ -285,7 +284,7 @@ const getLabBgClass = (availability: string) => {
               variant="outline"
               icon="i-heroicons-beaker"
               block
-              to="/equipment"
+              to="/labs"
               class="justify-center"
             >
               Browse Labs
@@ -315,10 +314,7 @@ const getLabBgClass = (availability: string) => {
               </div>
               <LabAvailabilityBadge :availability="lab.availability" />
             </div>
-            <p
-              v-if="labs.length === 0"
-              class="text-sm text-gray-500 text-center py-4"
-            >
+            <p v-if="labs.length === 0" class="text-sm text-gray-500 text-center py-4">
               No labs available
             </p>
           </div>
@@ -345,7 +341,10 @@ const getLabBgClass = (availability: string) => {
                 <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
                   Purpose
                 </th>
-                <th v-if="isInstructorOrAdmin" class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">
+                <th
+                  v-if="isInstructorOrAdmin"
+                  class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white"
+                >
                   User
                 </th>
                 <th class="text-left py-3 px-4 font-medium text-gray-900 dark:text-white">Time</th>
@@ -412,10 +411,7 @@ const getLabBgClass = (availability: string) => {
               </tr>
             </tbody>
           </table>
-          <p
-            v-if="reservations.length === 0"
-            class="text-center py-8 text-gray-500"
-          >
+          <p v-if="reservations.length === 0" class="text-center py-8 text-gray-500">
             No reservations found
           </p>
         </div>
