@@ -11,6 +11,12 @@ export default defineNuxtConfig({
   runtimeConfig: {
     auth: {
       secret: ''
+    },
+    mail: {
+      hostname: process.env.SMTP_HOSTNAME,
+      port: process.env.SMTP_PORT || '587',
+      username: process.env.SMTP_USERNAME,
+      password: process.env.SMTP_PASSWORD
     }
   },
 
@@ -20,6 +26,12 @@ export default defineNuxtConfig({
 
   compatibilityDate: '2025-01-15',
 
+  nitro: {
+    experimental: {
+      openAPI: true
+    }
+  },
+
   eslint: {
     config: {
       stylistic: {
@@ -27,5 +39,5 @@ export default defineNuxtConfig({
         braceStyle: '1tbs'
       }
     }
-  },
+  }
 })

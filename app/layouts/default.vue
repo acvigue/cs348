@@ -15,12 +15,6 @@ if (me.loggedIn) {
     icon: 'i-heroicons-lock-closed',
     to: '/auth/logout'
   })
-} else {
-  links.push({
-    label: 'Login',
-    icon: 'i-heroicons-login',
-    to: '/auth/login'
-  })
 }
 
 const siteName = useAppConfig().public.siteName

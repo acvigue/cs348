@@ -7,7 +7,7 @@ definePageMeta({
 })
 
 useHead({
-  title: 'Sign Up'
+  title: 'Forgot Password'
 })
 
 const error = ref('')
@@ -17,8 +17,7 @@ const loading = ref(false)
 // Zod schema for validation
 const schema = z
   .object({
-    name: z.string(),
-    email: z.email('Invalid email address'),
+    token: z.string(),
     password: z.string().min(8, 'Password must be at least 8 characters'),
     verify_password: z.string().min(8, 'Password confirmation is required')
   })
@@ -30,8 +29,7 @@ const schema = z
 type Schema = z.output<typeof schema>
 
 const state = reactive<Schema>({
-  name: '',
-  email: '',
+  token: '',
   password: '',
   verify_password: ''
 })
@@ -41,26 +39,30 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
   success.value = ''
   loading.value = true
 
+  // get Token from url params
+  const url = new URL(window.location.href)
+  const token = url.searchParams.get('token')
+  state.token = token || ''
+
   try {
-    const result = await $fetch('/api/auth/register', {
+    const result = await $fetch('/api/auth/reset_password', {
       method: 'POST',
       body: {
-        name: event.data.name,
-        email: event.data.email,
+        token: state.token,
         password: event.data.password,
         verify_password: event.data.verify_password
       }
     })
 
     if (result) {
-      success.value = 'Account created successfully! Please login.'
+      success.value = result.body.message
       setTimeout(() => {
         navigateTo('/auth/login')
       }, 2000)
     }
   } catch (err) {
     error.value =
-      (err as { data?: { message?: string } })?.data?.message || 'Failed to create account'
+      (err as { data?: { message?: string } })?.data?.message || 'Failed to reset password'
   } finally {
     loading.value = false
   }
@@ -72,30 +74,16 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
     <template #header>
       <div class="text-center">
         <UIcon name="i-heroicons-lock-closed" class="text-primary mx-auto mb-4 size-8" />
-        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Create Account</h1>
-        <p class="mt-2 text-sm text-gray-600 dark:text-gray-400">
-          Already have an account?
-          <NuxtLink to="/auth/login" class="text-primary font-medium hover:underline">
-            Back to login </NuxtLink
-          >.
-        </p>
+        <h1 class="text-xl font-semibold text-gray-900 dark:text-white">Set New Password</h1>
       </div>
     </template>
 
     <UForm :schema="schema" :state="state" class="space-y-4" @submit="onSubmit">
-      <UFormField label="Name" name="name" required>
-        <UInput v-model="state.name" type="text" placeholder="Enter your name" required />
-      </UFormField>
-
-      <UFormField label="Email" name="email" required>
-        <UInput v-model="state.email" type="email" placeholder="Enter your email" required />
-      </UFormField>
-
       <UFormField label="Password" name="password" required>
         <UInput
           v-model="state.password"
           type="password"
-          placeholder="Enter your password"
+          placeholder="Enter your new password"
           required
         />
       </UFormField>
@@ -104,8 +92,8 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
         <UInput
           v-model="state.verify_password"
           type="password"
-          placeholder="Enter your password again"
-          required
+          placeholder="Confirm your new password"
+          requiredloc
         />
       </UFormField>
 
@@ -126,19 +114,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
       />
 
       <div class="flex flex-col space-y-3 mt-6">
-        <UButton type="submit" block :loading="loading" size="lg">Create Account</UButton>
-
-        <UButton
-          to="/"
-          variant="ghost"
-          color="neutral"
-          block
-          size="md"
-          class="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-        >
-          <UIcon name="i-heroicons-arrow-left" class="mr-2" />
-          Back to Home
-        </UButton>
+        <UButton type="submit" block :loading="loading" size="lg">Next</UButton>
       </div>
     </UForm>
   </UCard>

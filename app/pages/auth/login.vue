@@ -79,7 +79,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
           required
         />
         <ULink
-          to="/auth/password-reset"
+          to="/auth/forgot_password"
           class="block mt-1 text-right text-sm text-primary hover:underline"
         >
           Forgot your password?

@@ -17,5 +17,8 @@
     ".gitignore": ".gitattributes, .gitmodules, .gitmessage, .mailmap, .git-blame*",
     "renovate.json": "renovate.json5, .renovaterc, .renovaterc.json, renovate.config.js, renovate.config.ts",
     "prisma.config.*": "prisma.config.js, prisma.config.ts"
+  },
+  "[typescript]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
   }
 }
