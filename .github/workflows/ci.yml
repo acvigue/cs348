@@ -20,6 +20,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
+      # Set mock DATABASE_URL for Prisma commands
+      - name: Set up DATABASE_URL
+        run: echo "DATABASE_URL=file:./dev.db" >> $GITHUB_ENV
+
       - name: Prisma Generate
         run: pnpm prisma generate
 
