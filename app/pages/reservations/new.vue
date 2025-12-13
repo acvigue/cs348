@@ -20,24 +20,18 @@ const router = useRouter()
 const toast = useToast()
 
 // Fetch labs and equipment
+const labsQuery = computed(() => ({ results_per_page: 100 }))
 const { data: labsData } = await useFetch('/api/labs', {
-  query: { results_per_page: 100 }
+  query: labsQuery
 })
+
+const equipmentQuery = computed(() => ({ results_per_page: 1000 }))
 const { data: equipmentData } = await useFetch('/api/equipment', {
-  query: { results_per_page: 1000 }
+  query: equipmentQuery
 })
 
 const labs = computed(() => labsData.value?.labs || [])
 const allEquipment = computed(() => equipmentData.value?.equipment || [])
-
-// Selected lab for filtering equipment
-const selectedLabId = ref<{ id: number; label: string; description: string } | undefined>(undefined)
-
-// Filter equipment by selected lab
-const availableEquipment = computed(() => {
-  if (!selectedLabId.value) return []
-  return allEquipment.value.filter((eq) => eq.labId === selectedLabId.value?.id)
-})
 
 // Round time to next 15-minute block
 const roundToNext15Minutes = (date: Date) => {
@@ -154,22 +148,27 @@ const state = reactive<Schema>({
 const loading = ref(false)
 const error = ref('')
 
-// Watch lab selection to reset equipment
-watch(selectedLabId, (newLabId) => {
-  if (newLabId) {
-    state.labId = newLabId.id
+watch(
+  () => state.labId,
+  () => {
     state.equipmentIds = []
   }
-})
+)
 
 // Lab options for select
 const labOptions = computed(() =>
   labs.value.map((lab) => ({
-    id: lab.id,
+    value: lab.id,
     label: `${lab.building} ${lab.roomNumber}`,
     description: lab.description || undefined
   }))
 )
+
+// Filter equipment by selected lab
+const availableEquipment = computed(() => {
+  if (!state.labId) return []
+  return allEquipment.value.filter((eq) => eq.labId === state.labId)
+})
 
 const onSubmit = async (event: FormSubmitEvent<Schema>) => {
   error.value = ''
@@ -210,28 +209,30 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
 <template>
   <div>
     <UContainer class="py-8 max-w-4xl">
-      <!-- Header -->
-      <div class="mb-8">
-        <UButton to="/reservations" variant="ghost" icon="i-heroicons-arrow-left" class="mb-4">
-          Back to Reservations
-        </UButton>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">New Reservation</h1>
-        <p class="text-gray-600 dark:text-gray-400">
-          Reserve lab equipment for your project or research.
-        </p>
-      </div>
+      <UButton to="/reservations" variant="ghost" icon="i-heroicons-arrow-left" class="mb-4">
+        Back to Reservations
+      </UButton>
+      <PageHeader
+        title="New Reservation"
+        description="Reserve lab equipment for your project or research."
+      />
 
       <!-- Form -->
       <UCard>
         <UForm :schema="schema" :state="state" class="space-y-6" @submit="onSubmit">
           <!-- Lab Selection -->
           <UFormField label="Lab" name="labId" required>
-            <USelectMenu v-model="selectedLabId" :items="labOptions" placeholder="Select a lab" />
+            <USelectMenu
+              v-model="state.labId"
+              :items="labOptions"
+              value-key="value"
+              placeholder="Select a lab"
+            />
             <template #hint> Select the lab where the equipment is located </template>
           </UFormField>
 
           <!-- Equipment Selection -->
-          <UFormField v-if="selectedLabId" label="Equipment" name="equipmentIds" required>
+          <UFormField v-if="state.labId" label="Equipment" name="equipmentIds" required>
             <div class="space-y-3">
               <div
                 v-for="equipment in availableEquipment"
@@ -335,7 +336,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
               type="submit"
               icon="i-heroicons-check"
               :loading="loading"
-              :disabled="!selectedLabId || state.equipmentIds.length === 0"
+              :disabled="!state.labId || state.equipmentIds.length === 0"
             >
               Create Reservation
             </UButton>

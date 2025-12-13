@@ -87,10 +87,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
         Back to Labs
       </UButton>
 
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Add New Lab</h1>
-        <p class="text-gray-600 dark:text-gray-400">Create a new laboratory space in the system</p>
-      </div>
+      <PageHeader title="Add New Lab" description="Create a new laboratory space in the system" />
 
       <UCard>
         <UForm :schema="schema" :state="state" class="space-y-6" @submit="onSubmit">

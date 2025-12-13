@@ -1,3 +1,4 @@
+import { Prisma } from '@/generated/prisma/client'
 import prisma from '../../prisma'
 import { z } from 'zod'
 import { responses } from '../../utils/openapi'
@@ -97,36 +98,39 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event)
     const validatedData = createEquipmentSchema.parse(body)
 
-    // Check if lab exists
-    const lab = await prisma.lab.findUnique({
-      where: { id: validatedData.labId }
-    })
+    const equipment = await prisma.$transaction(
+      async (tx) => {
+        const lab = await tx.lab.findUnique({
+          where: { id: validatedData.labId }
+        })
 
-    if (!lab) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Lab not found'
-      })
-    }
+        if (!lab) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: 'Lab not found'
+          })
+        }
 
-    // Check if serial number is unique
-    const existingEquipment = await prisma.equipment.findUnique({
-      where: { serialNumber: validatedData.serialNumber }
-    })
+        const existingEquipment = await tx.equipment.findUnique({
+          where: { serialNumber: validatedData.serialNumber }
+        })
 
-    if (existingEquipment) {
-      throw createError({
-        statusCode: 400,
-        statusMessage: 'Equipment with this serial number already exists'
-      })
-    }
+        if (existingEquipment) {
+          throw createError({
+            statusCode: 400,
+            statusMessage: 'Equipment with this serial number already exists'
+          })
+        }
 
-    const equipment = await prisma.equipment.create({
-      data: validatedData,
-      include: {
-        lab: true
-      }
-    })
+        return tx.equipment.create({
+          data: validatedData,
+          include: {
+            lab: true
+          }
+        })
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+    )
 
     return {
       status: 201,

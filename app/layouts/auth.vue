@@ -7,6 +7,5 @@
     <UContainer class="flex items-center justify-center min-h-screen z-10">
       <slot />
     </UContainer>
-    <UNotifications />
   </div>
 </template>

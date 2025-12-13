@@ -26,16 +26,20 @@ const labs = computed(() => labsData.value?.labs || [])
 
 // Fetch equipment stats
 const { data: equipmentData } = await useFetch('/api/equipment')
-const totalEquipment = computed(() => equipmentData.value?.pagination?.total_results || 0)
+const totalEquipment = computed(() => equipmentData.value?.pagination?.totalResults || 0)
 const availableNow = computed(() => {
   return equipmentData.value?.equipment?.filter((e) => e.status === 'AVAILABLE').length || 0
 })
 
 // Fetch reservations
+const reservationsQuery = computed(() => ({
+  results_per_page: isInstructorOrAdmin.value ? 10 : 5
+}))
 const { data: reservationsData, refresh: refreshReservations } = await useFetch(
   '/api/reservations',
   {
-    query: { results_per_page: isInstructorOrAdmin.value ? 10 : 5 }
+    query: reservationsQuery,
+    watch: [reservationsQuery]
   }
 )
 
@@ -94,7 +98,8 @@ const confirmReservation = async (reservationId: number) => {
   } catch (error) {
     toast.add({
       title: 'Error',
-      description: (error as any).data?.message || 'Failed to confirm reservation',
+      description:
+        (error as { data?: { message?: string } }).data?.message || 'Failed to confirm reservation',
       color: 'error'
     })
   } finally {
@@ -117,7 +122,8 @@ const cancelReservation = async (reservationId: number) => {
   } catch (error) {
     toast.add({
       title: 'Error',
-      description: (error as any).data?.message || 'Failed to cancel reservation',
+      description:
+        (error as { data?: { message?: string } }).data?.message || 'Failed to cancel reservation',
       color: 'error'
     })
   } finally {
@@ -151,90 +157,37 @@ const getLabBgClass = (availability: string) => {
 <template>
   <div>
     <UContainer class="py-8">
-      <!-- Header -->
-      <div class="mb-8">
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-          Welcome back, {{ user?.body?.email?.split('@')[0] || 'User' }}!
-        </h1>
-        <p class="text-gray-600 dark:text-gray-400">
-          Manage your lab equipment reservations and track utilization.
-        </p>
-      </div>
+      <PageHeader
+        :title="`Welcome back, ${user?.body?.email?.split('@')[0] || 'User'}!`"
+        description="Manage your lab equipment reservations and track utilization."
+      />
 
       <!-- Quick Stats -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-        <UCard>
-          <div class="flex items-center">
-            <div
-              class="flex items-center justify-center w-12 h-12 bg-blue-100 dark:bg-blue-900 rounded-lg mr-4"
-            >
-              <UIcon name="i-heroicons-clock" class="w-6 h-6 text-blue-600 dark:text-blue-400" />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ activeReservations }}
-              </p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Active Now</p>
-            </div>
-          </div>
-        </UCard>
-
-        <UCard>
-          <div class="flex items-center">
-            <div
-              class="flex items-center justify-center w-12 h-12 bg-green-100 dark:bg-green-900 rounded-lg mr-4"
-            >
-              <UIcon
-                name="i-heroicons-calendar-days"
-                class="w-6 h-6 text-green-600 dark:text-green-400"
-              />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ upcomingReservations }}
-              </p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Upcoming</p>
-            </div>
-          </div>
-        </UCard>
-
-        <UCard>
-          <div class="flex items-center">
-            <div
-              class="flex items-center justify-center w-12 h-12 bg-purple-100 dark:bg-purple-900 rounded-lg mr-4"
-            >
-              <UIcon
-                name="i-heroicons-beaker"
-                class="w-6 h-6 text-purple-600 dark:text-purple-400"
-              />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ totalEquipment }}
-              </p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Total Equipment</p>
-            </div>
-          </div>
-        </UCard>
-
-        <UCard>
-          <div class="flex items-center">
-            <div
-              class="flex items-center justify-center w-12 h-12 bg-yellow-100 dark:bg-yellow-900 rounded-lg mr-4"
-            >
-              <UIcon
-                name="i-heroicons-check-circle"
-                class="w-6 h-6 text-yellow-600 dark:text-yellow-400"
-              />
-            </div>
-            <div>
-              <p class="text-2xl font-bold text-gray-900 dark:text-white">
-                {{ availableNow }}
-              </p>
-              <p class="text-sm text-gray-600 dark:text-gray-400">Available Now</p>
-            </div>
-          </div>
-        </UCard>
+        <StatCard
+          icon="i-heroicons-clock"
+          :value="activeReservations"
+          label="Active Now"
+          color="blue"
+        />
+        <StatCard
+          icon="i-heroicons-calendar-days"
+          :value="upcomingReservations"
+          label="Upcoming"
+          color="green"
+        />
+        <StatCard
+          icon="i-heroicons-beaker"
+          :value="totalEquipment"
+          label="Total Equipment"
+          color="purple"
+        />
+        <StatCard
+          icon="i-heroicons-check-circle"
+          :value="availableNow"
+          label="Available Now"
+          color="yellow"
+        />
       </div>
 
       <!-- Main Actions -->
@@ -297,7 +250,7 @@ const getLabBgClass = (availability: string) => {
             <h2 class="text-xl font-semibold text-gray-900 dark:text-white">Lab Status</h2>
           </template>
 
-          <div class="space-y-3 max-h-[280px] overflow-y-auto">
+          <div class="space-y-3 max-h-70 overflow-y-auto">
             <div
               v-for="lab in labs"
               :key="lab.id"

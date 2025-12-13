@@ -1,7 +1,10 @@
+import type { Prisma } from '@/generated/prisma/client'
 import prisma from '../../prisma'
 import { LabAvailability } from '~/generated/prisma/enums'
 import { parameters, responses } from '../../utils/openapi'
 import { computeEquipmentStatus } from '../../utils/equipmentStatus'
+import { parsePaginationQuery, buildPaginationMeta } from '../../utils/pagination'
+import type { LabFilterParams } from '~/types/filters'
 
 defineRouteMeta({
   openAPI: {
@@ -34,65 +37,128 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   try {
-    const { page = 1, results_per_page = 20 } = getQuery(event)
-    const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-    const perPage = Math.max(1, parseInt(results_per_page as string, 10) || 20)
-    const total_results = await prisma.lab.count()
-    const total_pages = Math.ceil(total_results / perPage)
-    const labs = await prisma.lab.findMany({
-      skip: (pageNum - 1) * perPage,
-      take: perPage,
-      include: {
-        equipment: {
-          select: {
-            id: true,
-            name: true,
-            type: true,
-            status: true,
-            reservationLinks: {
-              where: {
-                reservation: {
-                  status: 'CONFIRMED',
-                  endTime: {
-                    gte: new Date()
+    const rawQuery = getQuery(event) as LabFilterParams & Record<string, unknown>
+    const { page, perPage, cursor } = parsePaginationQuery(rawQuery)
+    const now = new Date()
+
+    const where: Prisma.LabWhereInput = {}
+    const andConditions: Prisma.LabWhereInput[] = []
+
+    const search = typeof rawQuery.search === 'string' ? rawQuery.search.trim() : undefined
+    if (search) {
+      where.OR = [
+        { building: { contains: search, mode: 'insensitive' } },
+        { roomNumber: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    const activeEquipmentCondition: Prisma.EquipmentWhereInput = {
+      reservationLinks: {
+        some: {
+          reservation: {
+            status: 'CONFIRMED',
+            startTime: { lte: now },
+            endTime: { gte: now }
+          }
+        }
+      }
+    }
+
+    const availabilityParam = (rawQuery.availability || rawQuery.availabilityFilter) as
+      | string
+      | undefined
+    if (availabilityParam && availabilityParam !== 'ALL') {
+      const normalized = availabilityParam.toUpperCase() as LabAvailability
+      if (normalized === LabAvailability.EMPTY) {
+        andConditions.push({
+          equipment: {
+            none: activeEquipmentCondition
+          }
+        })
+      } else if (normalized === LabAvailability.FULL) {
+        andConditions.push({ equipment: { some: {} } })
+        andConditions.push({
+          equipment: {
+            every: activeEquipmentCondition
+          }
+        })
+      } else if (normalized === LabAvailability.IN_USE) {
+        andConditions.push({
+          equipment: {
+            some: activeEquipmentCondition
+          }
+        })
+        andConditions.push({
+          equipment: {
+            some: {
+              NOT: activeEquipmentCondition
+            }
+          }
+        })
+      }
+    }
+
+    if (andConditions.length) {
+      where.AND = andConditions
+    }
+
+    const [total_results, labs] = await prisma.$transaction([
+      prisma.lab.count({ where }),
+      prisma.lab.findMany({
+        where,
+        skip: cursor ? 1 : (page - 1) * perPage,
+        take: perPage,
+        cursor: cursor ? { id: cursor } : undefined,
+        include: {
+          equipment: {
+            select: {
+              id: true,
+              name: true,
+              type: true,
+              status: true,
+              reservationLinks: {
+                where: {
+                  reservation: {
+                    status: 'CONFIRMED',
+                    endTime: {
+                      gte: now
+                    }
                   }
-                }
-              },
-              select: {
-                reservation: {
-                  select: {
-                    status: true,
-                    startTime: true,
-                    endTime: true
+                },
+                select: {
+                  reservation: {
+                    select: {
+                      status: true,
+                      startTime: true,
+                      endTime: true
+                    }
                   }
                 }
               }
             }
+          },
+          _count: {
+            select: {
+              equipment: true
+            }
           }
         },
-        _count: {
-          select: {
-            equipment: true
-          }
-        }
-      },
-      orderBy: [{ building: 'asc' }, { roomNumber: 'asc' }]
-    })
+        orderBy: [{ building: 'asc' }, { roomNumber: 'asc' }]
+      })
+    ])
 
-    // Compute LabAvailability enum: EMPTY (all available), FULL (all unavailable), IN_USE (some available)
     const currentTime = new Date()
     const labsWithAvailability = labs.map((lab) => {
       let availableCount = 0
       let unavailableCount = 0
 
       if (lab.equipment.length > 0) {
-        // Count equipment by computed status
         lab.equipment.forEach((equipment) => {
           const status = computeEquipmentStatus(equipment, currentTime)
-          if (status === 'AVAILABLE' || status === 'MAINTENANCE' || status === 'OUT_OF_ORDER') {
-            availableCount++
-          } else {
+          if (status === 'IN_USE') {
             unavailableCount++
+          } else {
+            availableCount++
           }
         })
       }
@@ -109,15 +175,22 @@ export default defineEventHandler(async (event) => {
       return { ...lab, availability }
     })
 
+    const totalPages = Math.max(1, Math.ceil(total_results / perPage))
+    const nextCursor = page < totalPages ? (labs.at(-1)?.id ?? null) : null
+    const prevCursor = page > 1 ? (labs.at(0)?.id ?? null) : null
+
     return {
       labs: labsWithAvailability,
-      pagination: {
-        page: pageNum,
-        total_pages,
-        total_results
-      }
+      pagination: buildPaginationMeta({
+        page,
+        perPage,
+        totalResults: total_results,
+        nextCursor,
+        prevCursor
+      })
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch labs', error)
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to fetch labs'

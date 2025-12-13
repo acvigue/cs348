@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { LabAvailability } from '~/generated/prisma/enums'
+import type { PaginationMeta } from '~/types/pagination'
 
 definePageMeta({
   layout: 'default'
@@ -28,33 +29,6 @@ const page = ref(1)
 const perPage = ref(20)
 const availabilityFilter = ref<LabAvailability | 'ALL'>('ALL')
 
-// Fetch labs
-const {
-  data: labsData,
-  pending,
-  refresh
-} = await useFetch('/api/labs', {
-  query: {
-    page,
-    results_per_page: perPage
-  },
-  watch: [page, perPage]
-})
-
-const labs = computed(() => labsData.value?.labs || [])
-const pagination = computed(() => labsData.value?.pagination)
-
-// Filter labs by availability
-const filteredLabs = computed(() => {
-  let filtered = labs.value
-
-  if (availabilityFilter.value !== 'ALL') {
-    filtered = filtered.filter((lab) => lab.availability === availabilityFilter.value)
-  }
-
-  return filtered
-})
-
 const availabilityOptions = [
   { label: 'All Labs', value: 'ALL' },
   { label: 'Available', value: 'EMPTY' },
@@ -62,14 +36,24 @@ const availabilityOptions = [
   { label: 'Full', value: 'FULL' }
 ]
 
-const selectedAvailabilityOption = computed({
-  get: () =>
-    availabilityOptions.find((opt) => opt.value === availabilityFilter.value) ||
-    availabilityOptions[0],
-  set: (val) => {
-    if (val) availabilityFilter.value = val.value as LabAvailability | 'ALL'
-  }
+const labsQuery = computed(() => ({
+  page: page.value,
+  results_per_page: perPage.value,
+  availability: availabilityFilter.value !== 'ALL' ? availabilityFilter.value : undefined
+}))
+
+// Fetch labs
+const {
+  data: labsData,
+  pending,
+  refresh
+} = await useFetch('/api/labs', {
+  query: labsQuery,
+  watch: [labsQuery]
 })
+
+const labs = computed(() => labsData.value?.labs || [])
+const pagination = computed<PaginationMeta | undefined>(() => labsData.value?.pagination)
 
 // Delete confirmation modal
 const deleteModalOpen = ref(false)
@@ -115,34 +99,30 @@ const deleteLab = async () => {
 <template>
   <div>
     <UContainer class="py-8">
-      <!-- Header -->
-      <div class="flex items-center justify-between mb-8">
-        <div>
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Labs</h1>
-          <p class="text-gray-600 dark:text-gray-400">Browse and manage laboratory spaces</p>
-        </div>
-        <UButton v-if="canManageLabs" icon="i-heroicons-plus" to="/labs/new"> Add Lab </UButton>
-      </div>
+      <PageHeader title="Labs" description="Browse and manage laboratory spaces">
+        <template #actions>
+          <UButton v-if="canManageLabs" icon="i-heroicons-plus" to="/labs/new"> Add Lab </UButton>
+        </template>
+      </PageHeader>
 
       <!-- Filters -->
       <div class="mb-6 flex flex-col sm:flex-row gap-4">
         <USelectMenu
-          v-model="selectedAvailabilityOption"
-          :options="availabilityOptions"
+          v-model="availabilityFilter"
+          :items="availabilityOptions"
+          value-key="value"
           placeholder="Filter by availability"
           class="w-full sm:w-64"
         />
       </div>
 
       <!-- Loading State -->
-      <div v-if="pending" class="flex justify-center items-center py-12">
-        <UIcon name="i-heroicons-arrow-path" class="w-8 h-8 animate-spin text-primary" />
-      </div>
+      <LoadingSpinner v-if="pending" size="lg" />
 
       <!-- Labs Grid -->
       <div v-else class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <UCard
-          v-for="lab in filteredLabs"
+          v-for="lab in labs"
           :key="lab.id"
           class="hover:shadow-lg transition-shadow cursor-pointer"
           @click="!canManageLabs && navigateTo(`/labs/${lab.id}`)"
@@ -203,45 +183,38 @@ const deleteLab = async () => {
       </div>
 
       <!-- Empty State -->
-      <div
-        v-if="!pending && filteredLabs.length === 0"
-        class="text-center py-12 bg-gray-50 dark:bg-gray-800 rounded-lg"
+      <EmptyState
+        v-if="!pending && labs.length === 0"
+        icon="i-heroicons-building-office-2"
+        title="No labs found"
+        description="No labs found"
       >
-        <UIcon name="i-heroicons-building-office-2" class="w-12 h-12 mx-auto text-gray-400 mb-4" />
-        <p class="text-gray-600 dark:text-gray-400 mb-4">No labs found</p>
-        <UButton v-if="canManageLabs" icon="i-heroicons-plus" to="/labs/new">
-          Add First Lab
-        </UButton>
-      </div>
+        <template #action>
+          <UButton v-if="canManageLabs" icon="i-heroicons-plus" to="/labs/new">
+            Add First Lab
+          </UButton>
+        </template>
+      </EmptyState>
 
       <!-- Pagination -->
-      <div v-if="pagination && pagination.total_pages > 1" class="mt-8 flex justify-center">
+      <div v-if="pagination && pagination.totalPages > 1" class="mt-8 flex justify-center">
         <UPagination
           v-model:page="page"
-          :total="pagination.total_results"
-          :items-per-page="perPage"
+          :total="pagination.totalResults"
+          :items-per-page="pagination?.perPage ?? perPage"
         />
       </div>
     </UContainer>
 
     <!-- Delete Confirmation Modal -->
-    <UModal v-model="deleteModalOpen">
-      <UCard>
-        <template #header>
-          <h3 class="text-lg font-semibold">Confirm Delete</h3>
-        </template>
-
-        <p class="text-gray-600 dark:text-gray-400">
-          Are you sure you want to delete this lab? This action cannot be undone.
-        </p>
-
-        <template #footer>
-          <div class="flex justify-end gap-2">
-            <UButton variant="outline" @click="deleteModalOpen = false"> Cancel </UButton>
-            <UButton color="error" :loading="deleteLoading" @click="deleteLab"> Delete </UButton>
-          </div>
-        </template>
-      </UCard>
-    </UModal>
+    <ConfirmModal
+      v-model="deleteModalOpen"
+      title="Confirm Delete"
+      description="Are you sure you want to delete this lab? This action cannot be undone."
+      confirm-text="Delete"
+      :loading="deleteLoading"
+      @confirm="deleteLab"
+      @cancel="deleteModalOpen = false"
+    />
   </div>
 </template>

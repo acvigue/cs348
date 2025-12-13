@@ -139,29 +139,19 @@ const labInfo = computed(() => (reservation.value ? getLabInfo(reservation.value
   <div>
     <UContainer class="py-8">
       <!-- Loading State -->
-      <UCard v-if="pending">
-        <div class="flex items-center justify-center py-12">
-          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-        </div>
-      </UCard>
+      <LoadingSpinner v-if="pending" />
 
       <!-- Error State -->
-      <UCard v-else-if="!reservation">
-        <div class="text-center py-12">
-          <UIcon
-            name="i-heroicons-exclamation-circle"
-            class="w-12 h-12 text-red-400 mx-auto mb-4"
-          />
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            Reservation not found
-          </h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-6">
-            The reservation you're looking for doesn't exist or you don't have permission to view
-            it.
-          </p>
+      <EmptyState
+        v-else-if="!reservation"
+        icon="i-heroicons-exclamation-circle"
+        title="Reservation not found"
+        description="The reservation you're looking for doesn't exist or you don't have permission to view it."
+      >
+        <template #action>
           <UButton to="/reservations" icon="i-heroicons-arrow-left">Back to Reservations</UButton>
-        </div>
-      </UCard>
+        </template>
+      </EmptyState>
 
       <!-- Reservation Details -->
       <div v-else>

@@ -1,3 +1,4 @@
+import type { Prisma } from '@/generated/prisma/client'
 import prisma from '../../prisma'
 import { responses } from '../../utils/openapi'
 import { computeReservationStatus } from '../../utils/reservationStatus'
@@ -202,7 +203,7 @@ export default defineEventHandler(async (event) => {
 
   try {
     // Build equipment filter
-    const equipmentWhere: Record<string, any> = {}
+    const equipmentWhere: Prisma.EquipmentWhereInput = {}
 
     if (query.equipment_ids) {
       const equipmentIds = (query.equipment_ids as string)

@@ -149,18 +149,10 @@ const utilizationDaysOptions = [
   { label: 'Last 90 days', value: 90 }
 ]
 
-const selectedUtilizationPeriod = computed({
-  get: () =>
-    utilizationDaysOptions.find((opt) => opt.value === utilizationDays.value) ||
-    utilizationDaysOptions[0],
-  set: (val) => {
-    if (val) utilizationDays.value = val.value
-  }
-})
-
+const utilizationQuery = computed(() => ({ days: utilizationDays.value }))
 const { data: utilizationData } = await useFetch(`/api/labs/${labId}/utilization`, {
-  query: { days: utilizationDays },
-  watch: [utilizationDays]
+  query: utilizationQuery,
+  watch: [utilizationQuery]
 })
 
 const utilizationStartDate = computed(() => utilizationData.value?.body?.startDate)
@@ -203,11 +195,7 @@ const defaultStatus = { color: '#10b981', label: 'Available' }
   <div>
     <UContainer class="py-8">
       <!-- Loading State -->
-      <UCard v-if="pending">
-        <div class="flex items-center justify-center py-12">
-          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-        </div>
-      </UCard>
+      <LoadingSpinner v-if="pending" />
 
       <!-- Lab Details -->
       <div v-else-if="lab">
@@ -328,9 +316,9 @@ const defaultStatus = { color: '#10b981', label: 'Available' }
                 <div class="flex items-center justify-between">
                   <h2 class="text-xl font-semibold">Equipment Utilization</h2>
                   <USelectMenu
-                    v-model="selectedUtilizationPeriod"
+                    v-model="utilizationDays"
                     :items="utilizationDaysOptions"
-                    value-attribute="value"
+                    value-key="value"
                   />
                 </div>
               </template>

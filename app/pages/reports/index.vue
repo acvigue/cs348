@@ -83,8 +83,9 @@ const { data: labsData } = await useFetch('/api/labs')
 const labs = computed(() => labsData.value?.labs || [])
 
 // Fetch equipment for filtering
+const equipmentQuery = computed(() => ({ results_per_page: 1000 }))
 const { data: equipmentData } = await useFetch('/api/equipment', {
-  query: { results_per_page: 1000 }
+  query: equipmentQuery
 })
 const allEquipment = computed(() => equipmentData.value?.equipment || [])
 
@@ -234,16 +235,10 @@ const exportReport = () => {
 
 <template>
   <div class="container mx-auto px-4 py-8 max-w-7xl">
-    <!-- Header -->
-    <div class="mb-8">
-      <h1 class="text-4xl font-bold text-gray-900 dark:text-white mb-3">
-        Reports & Analytics Dashboard
-      </h1>
-      <p class="text-lg text-gray-600 dark:text-gray-400">
-        Comprehensive utilization reports with GANTT charts, detailed statistics, and percentage
-        breakdowns
-      </p>
-    </div>
+    <PageHeader
+      title="Reports & Analytics Dashboard"
+      description="Comprehensive utilization reports with GANTT charts, detailed statistics, and percentage breakdowns"
+    />
 
     <!-- Date Range Selector -->
     <UCard class="mb-6 border-2 border-primary-500/20">

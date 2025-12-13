@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { ComputedReservationStatus } from '~/types/reservation'
+import type { PaginationMeta } from '~/types/pagination'
 
 definePageMeta({
   layout: 'default'
@@ -22,28 +23,6 @@ const page = ref(1)
 const perPage = ref(20)
 const statusFilter = ref<ComputedReservationStatus | 'ALL'>('ALL')
 
-// Fetch reservations
-const {
-  data: reservationsData,
-  pending,
-  refresh: _refresh
-} = await useFetch('/api/reservations', {
-  query: {
-    page,
-    results_per_page: perPage
-  },
-  watch: [page, perPage]
-})
-
-const reservations = computed(() => reservationsData.value?.reservations || [])
-const pagination = computed(() => reservationsData.value?.pagination)
-
-// Filter reservations by status
-const filteredReservations = computed(() => {
-  if (statusFilter.value === 'ALL') return reservations.value
-  return reservations.value.filter((r) => r.status === statusFilter.value)
-})
-
 const statusOptions = [
   { label: 'All Statuses', value: 'ALL' },
   { label: 'Pending', value: 'PENDING' },
@@ -53,12 +32,24 @@ const statusOptions = [
   { label: 'Cancelled', value: 'CANCELLED' }
 ]
 
-const selectedStatusOption = computed({
-  get: () => statusOptions.find((opt) => opt.value === statusFilter.value) || statusOptions[0],
-  set: (val) => {
-    if (val) statusFilter.value = val.value as ComputedReservationStatus | 'ALL'
-  }
+const reservationsQuery = computed(() => ({
+  page: page.value,
+  results_per_page: perPage.value,
+  status: statusFilter.value !== 'ALL' ? statusFilter.value : undefined
+}))
+
+// Fetch reservations
+const {
+  data: reservationsData,
+  pending,
+  refresh: _refresh
+} = await useFetch('/api/reservations', {
+  query: reservationsQuery,
+  watch: [reservationsQuery]
 })
+
+const reservations = computed(() => reservationsData.value?.reservations || [])
+const pagination = computed<PaginationMeta | undefined>(() => reservationsData.value?.pagination)
 
 const formatDateTime = (date: string) => {
   return new Date(date).toLocaleString('en-US', {
@@ -98,20 +89,16 @@ const getLabNames = (reservation: {
 <template>
   <div>
     <UContainer class="py-8">
-      <!-- Header -->
-      <div class="mb-8">
-        <div class="flex items-center justify-between">
-          <div>
-            <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">My Reservations</h1>
-            <p class="text-gray-600 dark:text-gray-400">
-              View and manage your lab equipment reservations
-            </p>
-          </div>
+      <PageHeader
+        title="My Reservations"
+        description="View and manage your lab equipment reservations"
+      >
+        <template #actions>
           <UButton to="/reservations/new" icon="i-heroicons-plus" size="lg">
             New Reservation
           </UButton>
-        </div>
-      </div>
+        </template>
+      </PageHeader>
 
       <!-- Filters -->
       <UCard class="mb-6">
@@ -120,38 +107,32 @@ const getLabNames = (reservation: {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
               Filter by Status
             </label>
-            <USelectMenu v-model="selectedStatusOption" :items="statusOptions" />
+            <USelectMenu v-model="statusFilter" :items="statusOptions" value-key="value" />
           </div>
         </div>
       </UCard>
 
       <!-- Reservations List -->
-      <UCard v-if="pending">
-        <div class="flex items-center justify-center py-12">
-          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-        </div>
-      </UCard>
+      <LoadingSpinner v-if="pending" />
 
-      <UCard v-else-if="filteredReservations.length === 0">
-        <div class="text-center py-12">
-          <UIcon name="i-heroicons-calendar-days" class="w-12 h-12 text-gray-400 mx-auto mb-4" />
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            No reservations found
-          </h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-6">
-            {{
-              statusFilter === 'ALL'
-                ? "You haven't made any reservations yet."
-                : `No ${statusFilter.toLowerCase()} reservations.`
-            }}
-          </p>
+      <EmptyState
+        v-else-if="reservations.length === 0"
+        icon="i-heroicons-calendar-days"
+        title="No reservations found"
+        :description="
+          statusFilter === 'ALL'
+            ? 'You haven\'t made any reservations yet.'
+            : `No ${statusFilter.toLowerCase()} reservations.`
+        "
+      >
+        <template #action>
           <UButton to="/reservations/new" icon="i-heroicons-plus">Create Reservation</UButton>
-        </div>
-      </UCard>
+        </template>
+      </EmptyState>
 
       <div v-else class="space-y-4">
         <UCard
-          v-for="reservation in filteredReservations"
+          v-for="reservation in reservations"
           :key="reservation.id"
           class="hover:shadow-lg transition-shadow cursor-pointer"
           @click="navigateTo(`/reservations/${reservation.id}`)"
@@ -170,40 +151,17 @@ const getLabNames = (reservation: {
               </h3>
 
               <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-3">
-                <div class="flex items-start gap-2">
-                  <UIcon
-                    name="i-heroicons-building-office-2"
-                    class="w-5 h-5 text-gray-400 mt-0.5"
-                  />
-                  <div>
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Lab</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                      {{ getLabNames(reservation) }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="flex items-start gap-2">
-                  <UIcon name="i-heroicons-beaker" class="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Equipment</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                      {{ getEquipmentNames(reservation) }}
-                    </p>
-                  </div>
-                </div>
-
-                <div class="flex items-start gap-2">
-                  <UIcon name="i-heroicons-cube" class="w-5 h-5 text-gray-400 mt-0.5" />
-                  <div>
-                    <p class="text-sm font-medium text-gray-700 dark:text-gray-300">Items</p>
-                    <p class="text-sm text-gray-600 dark:text-gray-400">
-                      {{ getEquipmentCount(reservation) }} item{{
-                        getEquipmentCount(reservation) !== 1 ? 's' : ''
-                      }}
-                    </p>
-                  </div>
-                </div>
+                <InfoRow icon="i-heroicons-building-office-2" label="Lab">
+                  {{ getLabNames(reservation) }}
+                </InfoRow>
+                <InfoRow icon="i-heroicons-beaker" label="Equipment">
+                  {{ getEquipmentNames(reservation) }}
+                </InfoRow>
+                <InfoRow icon="i-heroicons-cube" label="Items">
+                  {{ getEquipmentCount(reservation) }} item{{
+                    getEquipmentCount(reservation) !== 1 ? 's' : ''
+                  }}
+                </InfoRow>
               </div>
 
               <div class="flex items-center gap-6 text-sm">
@@ -228,11 +186,11 @@ const getLabNames = (reservation: {
       </div>
 
       <!-- Pagination -->
-      <div v-if="pagination && pagination.total_pages > 1" class="mt-8 flex justify-center">
+      <div v-if="pagination && pagination.totalPages > 1" class="mt-8 flex justify-center">
         <UPagination
           v-model:page="page"
-          :items-per-page="perPage"
-          :total="pagination.total_results"
+          :items-per-page="pagination?.perPage ?? perPage"
+          :total="pagination.totalResults"
         />
       </div>
     </UContainer>

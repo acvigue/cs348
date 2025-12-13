@@ -1,6 +1,10 @@
+import type { Prisma } from '@/generated/prisma/client'
+import type { EquipmentStatus } from '~/generated/prisma/enums'
 import prisma from '../../prisma'
 import { parameters, responses } from '../../utils/openapi'
 import { addComputedStatusToMany } from '../../utils/equipmentStatus'
+import { parsePaginationQuery, buildPaginationMeta } from '../../utils/pagination'
+import type { EquipmentFilterParams } from '~/types/filters'
 
 defineRouteMeta({
   openAPI: {
@@ -34,56 +38,118 @@ defineRouteMeta({
 
 export default defineEventHandler(async (event) => {
   try {
-    const { page = 1, results_per_page = 20 } = getQuery(event)
-    const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-    const perPage = Math.max(1, parseInt(results_per_page as string, 10) || 20)
-    const total_results = await prisma.equipment.count()
-    const total_pages = Math.ceil(total_results / perPage)
-    const equipment = await prisma.equipment.findMany({
-      skip: (pageNum - 1) * perPage,
-      take: perPage,
-      include: {
-        lab: true,
-        reservationLinks: {
-          where: {
-            reservation: {
-              status: 'CONFIRMED',
-              endTime: {
-                gte: new Date()
+    const rawQuery = getQuery(event) as EquipmentFilterParams & Record<string, unknown>
+    const { page, perPage, cursor } = parsePaginationQuery(rawQuery)
+    const now = new Date()
+
+    const where: Prisma.EquipmentWhereInput = {}
+    const andConditions: Prisma.EquipmentWhereInput[] = []
+
+    const labIdInput = rawQuery.lab_id ?? rawQuery.labId
+    const labIdValue = labIdInput !== undefined ? Number(labIdInput) : undefined
+    if (labIdValue !== undefined && Number.isFinite(labIdValue)) {
+      andConditions.push({ labId: labIdValue })
+    }
+
+    const search = typeof rawQuery.search === 'string' ? rawQuery.search.trim() : undefined
+    if (search) {
+      where.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { type: { contains: search, mode: 'insensitive' } },
+        { serialNumber: { contains: search, mode: 'insensitive' } }
+      ]
+    }
+
+    const statusParam = (rawQuery.status || rawQuery.statusFilter) as string | undefined
+    if (statusParam && statusParam !== 'ALL') {
+      const normalized = statusParam.toUpperCase()
+      if (normalized === 'AVAILABLE') {
+        andConditions.push({ status: 'OPERATIONAL' })
+        andConditions.push({
+          reservationLinks: {
+            none: {
+              reservation: {
+                status: 'CONFIRMED',
+                startTime: { lte: now },
+                endTime: { gte: now }
               }
             }
-          },
-          include: {
-            reservation: {
-              include: {
-                user: {
-                  select: {
-                    id: true,
-                    email: true
+          }
+        })
+      } else if (normalized === 'IN_USE') {
+        andConditions.push({
+          reservationLinks: {
+            some: {
+              reservation: {
+                status: 'CONFIRMED',
+                startTime: { lte: now },
+                endTime: { gte: now }
+              }
+            }
+          }
+        })
+      } else {
+        andConditions.push({ status: normalized as EquipmentStatus })
+      }
+    }
+
+    if (andConditions.length) {
+      where.AND = andConditions
+    }
+
+    const [total_results, equipment] = await prisma.$transaction([
+      prisma.equipment.count({ where }),
+      prisma.equipment.findMany({
+        where,
+        skip: cursor ? 1 : (page - 1) * perPage,
+        take: perPage,
+        cursor: cursor ? { id: cursor } : undefined,
+        include: {
+          lab: true,
+          reservationLinks: {
+            where: {
+              reservation: {
+                status: 'CONFIRMED',
+                endTime: {
+                  gte: now
+                }
+              }
+            },
+            include: {
+              reservation: {
+                include: {
+                  user: {
+                    select: {
+                      id: true,
+                      email: true
+                    }
                   }
                 }
               }
             }
           }
-        }
-      },
-      orderBy: {
-        name: 'asc'
-      }
-    })
+        },
+        orderBy: [{ name: 'asc' }, { id: 'asc' }]
+      })
+    ])
 
-    // Add computed status to each equipment
     const equipmentWithStatus = addComputedStatusToMany(equipment)
+    const totalPages = Math.max(1, Math.ceil(total_results / perPage))
+    const nextCursor = page < totalPages ? (equipment.at(-1)?.id ?? null) : null
+    const prevCursor = page > 1 ? (equipment.at(0)?.id ?? null) : null
 
     return {
       equipment: equipmentWithStatus,
-      pagination: {
-        page: pageNum,
-        total_pages,
-        total_results
-      }
+      pagination: buildPaginationMeta({
+        page,
+        perPage,
+        totalResults: total_results,
+        nextCursor,
+        prevCursor
+      })
     }
-  } catch {
+  } catch (error) {
+    console.error('Failed to fetch equipment', error)
     throw createError({
       statusCode: 500,
       statusMessage: 'Failed to fetch equipment'

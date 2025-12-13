@@ -30,8 +30,9 @@ useHead({
 })
 
 // Fetch labs for editing
+const labsQuery = computed(() => ({ results_per_page: 100 }))
 const { data: labsData } = await useFetch('/api/labs', {
-  query: { results_per_page: 100 }
+  query: labsQuery
 })
 
 const labs = computed(() => labsData.value?.labs || [])
@@ -67,14 +68,10 @@ const error = ref('')
 // Lab options for select
 const labOptions = computed(() =>
   labs.value.map((lab) => ({
-    id: lab.id,
     label: `${lab.building} ${lab.roomNumber}`,
+    value: lab.id,
     description: lab.description ?? undefined
   }))
-)
-
-const selectedLab = ref<{ id: number; label: string; description: string | undefined } | undefined>(
-  undefined
 )
 
 // Initialize form when equipment loads
@@ -88,24 +85,10 @@ watch(
       state.description = newEquipment.description || ''
       state.labId = newEquipment.labId
       state.status = newEquipment.dbStatus
-      if (newEquipment.lab) {
-        selectedLab.value = {
-          id: newEquipment.lab.id,
-          label: `${newEquipment.lab.building} ${newEquipment.lab.roomNumber}`,
-          description: newEquipment.lab.description ?? undefined
-        }
-      }
     }
   },
   { immediate: true }
 )
-
-// Watch lab selection
-watch(selectedLab, (newLab) => {
-  if (newLab) {
-    state.labId = newLab.id
-  }
-})
 
 // Status options
 const statusOptions = [
@@ -113,13 +96,6 @@ const statusOptions = [
   { label: 'Maintenance', value: 'MAINTENANCE' },
   { label: 'Out of Order', value: 'OUT_OF_ORDER' }
 ]
-
-const selectedStatus = computed({
-  get: () => statusOptions.find((opt) => opt.value === state.status) || statusOptions[0],
-  set: (val) => {
-    if (val) state.status = val.value as EquipmentStatus
-  }
-})
 
 const onSubmit = async (event: FormSubmitEvent<Schema>) => {
   error.value = ''
@@ -199,18 +175,10 @@ const utilizationDaysOptions = [
   { label: 'Last 90 days', value: 90 }
 ]
 
-const selectedUtilizationPeriod = computed({
-  get: () =>
-    utilizationDaysOptions.find((opt) => opt.value === utilizationDays.value) ||
-    utilizationDaysOptions[0],
-  set: (val) => {
-    if (val) utilizationDays.value = val.value
-  }
-})
-
+const utilizationQuery = computed(() => ({ days: utilizationDays.value }))
 const { data: utilizationData } = await useFetch(`/api/equipment/${equipmentId}/utilization`, {
-  query: { days: utilizationDays },
-  watch: [utilizationDays]
+  query: utilizationQuery,
+  watch: [utilizationQuery]
 })
 
 const utilizationStats = computed(() => utilizationData.value?.body?.utilization)
@@ -249,28 +217,19 @@ const defaultStatus = { color: '#10b981', label: 'Available' }
   <div>
     <UContainer class="py-8">
       <!-- Loading State -->
-      <UCard v-if="pending">
-        <div class="flex items-center justify-center py-12">
-          <UIcon name="i-heroicons-arrow-path" class="w-6 h-6 animate-spin" />
-        </div>
-      </UCard>
+      <LoadingSpinner v-if="pending" />
 
       <!-- Error State -->
-      <UCard v-else-if="!equipment">
-        <div class="text-center py-12">
-          <UIcon
-            name="i-heroicons-exclamation-circle"
-            class="w-12 h-12 text-red-400 mx-auto mb-4"
-          />
-          <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-2">
-            Equipment not found
-          </h3>
-          <p class="text-gray-600 dark:text-gray-400 mb-6">
-            The equipment you're looking for doesn't exist.
-          </p>
+      <EmptyState
+        v-else-if="!equipment"
+        icon="i-heroicons-exclamation-circle"
+        title="Equipment not found"
+        description="The equipment you're looking for doesn't exist."
+      >
+        <template #action>
           <UButton to="/equipment" icon="i-heroicons-arrow-left">Back to Equipment</UButton>
-        </div>
-      </UCard>
+        </template>
+      </EmptyState>
 
       <!-- Equipment Details -->
       <div v-else>
@@ -344,12 +303,17 @@ const defaultStatus = { color: '#10b981', label: 'Available' }
 
             <!-- Lab Selection -->
             <UFormField label="Lab Location" name="labId" required>
-              <USelectMenu v-model="selectedLab" :items="labOptions" placeholder="Select a lab" />
+              <USelectMenu
+                v-model="state.labId"
+                :items="labOptions"
+                value-key="value"
+                placeholder="Select a lab"
+              />
             </UFormField>
 
             <!-- Status -->
             <UFormField label="Status" name="status" required>
-              <USelectMenu v-model="selectedStatus" :items="statusOptions" />
+              <USelectMenu v-model="state.status" :items="statusOptions" value-key="value" />
             </UFormField>
 
             <!-- Error Alert -->
@@ -465,9 +429,9 @@ const defaultStatus = { color: '#10b981', label: 'Available' }
                     Utilization History
                   </h2>
                   <USelectMenu
-                    v-model="selectedUtilizationPeriod"
+                    v-model="utilizationDays"
                     :items="utilizationDaysOptions"
-                    value-attribute="value"
+                    value-key="value"
                   />
                 </div>
               </template>

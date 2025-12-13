@@ -1,6 +1,11 @@
 import { PrismaClient } from '../app/generated/prisma/client'
+import { PrismaPg } from '@prisma/adapter-pg'
 
-const prisma = new PrismaClient()
+const adapter = new PrismaPg({
+  connectionString: process.env.DATABASE_URL!
+})
+
+const prisma = new PrismaClient({ adapter })
 
 // Helper function to generate random date within a range
 function randomDate(start: Date, end: Date): Date {
@@ -21,7 +26,7 @@ function randomTimeSlot(date: Date): { start: Date; end: Date } {
 async function main() {
   console.log('🌱 Starting database seeding...')
 
-  // Create 10 Labs
+  // Create 30 Labs
   const labBuildings = [
     'Engineering Building A',
     'Engineering Building B',
@@ -43,7 +48,7 @@ async function main() {
   ]
 
   const labs = []
-  for (let i = 0; i < 10; i++) {
+  for (let i = 0; i < 30; i++) {
     const building = labBuildings[i % labBuildings.length]
     const roomNumber = String(100 + i * 10 + (i % 3))
     const capacity = 15 + Math.floor(Math.random() * 25) // 15-40 capacity
@@ -53,7 +58,9 @@ async function main() {
           building,
           roomNumber,
           capacity,
-          description: labDescriptions[i]
+          description:
+            labDescriptions[i % labDescriptions.length] ??
+            `Laboratory space ${i + 1} with specialized equipment and workbenches`
         }
       })
     )
@@ -149,7 +156,7 @@ async function main() {
 
   for (let i = 0; i < 100; i++) {
     const template = equipmentTypes[i % equipmentTypes.length]
-    const labId = labs[i % 10].id
+    const labId = labs[i % labs.length].id
     const serialPrefix = template.type.substring(0, 3).toUpperCase()
     const status = statuses[Math.floor(Math.random() * statuses.length)]
 
@@ -169,7 +176,7 @@ async function main() {
 
   console.log(`✅ Created ${equipment.length} equipment items`)
 
-  // Create 20 Users (1 admin, 3 instructors, 16 students)
+  // Create 50 Users (same admin, instructors, students)
   const firstNames = [
     'Alice',
     'Bob',
@@ -216,6 +223,7 @@ async function main() {
   ]
 
   const users = []
+  const passwordHash = '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm'
 
   // Admin user
   users.push(
@@ -224,46 +232,46 @@ async function main() {
       update: {},
       create: {
         email: 'admin@lab.edu',
-        password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
+        password: passwordHash,
         name: 'Lab Administrator',
         role: 'ADMIN'
       }
     })
   )
 
-  // Instructor users
-  for (let i = 0; i < 3; i++) {
+  // Instructor users (5)
+  for (let i = 0; i < 5; i++) {
     users.push(
       await prisma.user.upsert({
         where: { email: `instructor${i + 1}@lab.edu` },
         update: {},
         create: {
           email: `instructor${i + 1}@lab.edu`,
-          password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
-          name: `${firstNames[i]} ${lastNames[i]}`,
+          password: passwordHash,
+          name: `${firstNames[i % firstNames.length]} ${lastNames[i % lastNames.length]}`,
           role: 'INSTRUCTOR'
         }
       })
     )
   }
 
-  // Student users
-  for (let i = 0; i < 16; i++) {
+  // Student users (44)
+  for (let i = 0; i < 44; i++) {
     users.push(
       await prisma.user.upsert({
         where: { email: `student${i + 1}@lab.edu` },
         update: {},
         create: {
           email: `student${i + 1}@lab.edu`,
-          password: '$2a$12$p868jVafX1XK0MI/cG9V1O7R4x7j0JW1MWNqTKCCGvStKydZkxXDm',
-          name: `${firstNames[i + 3]} ${lastNames[i + 3]}`,
+          password: passwordHash,
+          name: `${firstNames[(i + 5) % firstNames.length]} ${lastNames[(i + 5) % lastNames.length]}`,
           role: 'STUDENT'
         }
       })
     )
   }
 
-  console.log(`✅ Created ${users.length} users (1 admin, 3 instructors, 16 students)`)
+  console.log(`✅ Created ${users.length} users (1 admin, 5 instructors, 44 students)`)
 
   // Create reservations: 60 days of history + 14 days of future events
   const reservationPurposes = [
@@ -295,11 +303,36 @@ async function main() {
   const endDate = new Date(now)
   endDate.setDate(endDate.getDate() + 14) // 14 days in the future
 
-  const reservations = []
   const studentUsers = users.filter((u) => u.role === 'STUDENT')
 
-  // Generate historical reservations (60 days back) - all CONFIRMED (completed)
-  for (let i = 0; i < 200; i++) {
+  const operationalEquipmentIds = equipment
+    .filter((e) => e.status === 'OPERATIONAL')
+    .map((e) => e.id)
+
+  if (studentUsers.length === 0) {
+    throw new Error('No student users were created; cannot seed reservations')
+  }
+
+  if (operationalEquipmentIds.length === 0) {
+    throw new Error('No OPERATIONAL equipment was created; cannot seed reservations')
+  }
+
+  const pickUniqueEquipmentIds = (count: number): number[] => {
+    const picked = new Set<number>()
+    while (picked.size < count) {
+      const id = operationalEquipmentIds[Math.floor(Math.random() * operationalEquipmentIds.length)]
+      if (id != null) picked.add(id)
+    }
+    return Array.from(picked)
+  }
+
+  // Create reservations: same timeframe, total = 10,000
+  const totalReservations = 10_000
+  const historicalCount = 8_000
+  const futureReservationCount = totalReservations - historicalCount
+
+  // Generate historical reservations (60 days back) - all CONFIRMED
+  for (let i = 0; i < historicalCount; i++) {
     const reservationDate = randomDate(startDate, now)
     const { start, end } = randomTimeSlot(reservationDate)
     const user = studentUsers[Math.floor(Math.random() * studentUsers.length)]
@@ -315,30 +348,26 @@ async function main() {
         notes: `Historical reservation - completed on ${start.toLocaleDateString()}`
       }
     })
-    reservations.push(reservation)
 
     // Add 1-3 equipment items to each reservation
     const numEquipment = 1 + Math.floor(Math.random() * 3)
-    const availableEquipment = equipment.filter((e) => e.status === 'OPERATIONAL')
-    const selectedEquipment = []
-    for (let j = 0; j < numEquipment; j++) {
-      const eq = availableEquipment[Math.floor(Math.random() * availableEquipment.length)]
-      if (!selectedEquipment.includes(eq.id)) {
-        selectedEquipment.push(eq.id)
-        await prisma.reservationEquipment.create({
-          data: {
-            reservationId: reservation.id,
-            equipmentId: eq.id
-          }
-        })
-      }
+    const selectedEquipmentIds = pickUniqueEquipmentIds(numEquipment)
+    await prisma.reservationEquipment.createMany({
+      data: selectedEquipmentIds.map((equipmentId) => ({
+        reservationId: reservation.id,
+        equipmentId
+      })),
+      skipDuplicates: true
+    })
+
+    if ((i + 1) % 1000 === 0) {
+      console.log(`… created ${i + 1}/${historicalCount} historical reservations`)
     }
   }
 
-  console.log(`✅ Created ${reservations.length} historical reservations`)
+  console.log(`✅ Created ${historicalCount} historical reservations`)
 
   // Generate future reservations (14 days forward) - mix of CONFIRMED and PENDING
-  const futureReservationCount = 80
   for (let i = 0; i < futureReservationCount; i++) {
     const reservationDate = randomDate(now, endDate)
     const { start, end } = randomTimeSlot(reservationDate)
@@ -358,28 +387,25 @@ async function main() {
         notes: status === 'PENDING' ? 'Awaiting approval' : 'Approved and scheduled'
       }
     })
-    reservations.push(reservation)
 
     // Add 1-3 equipment items to each reservation
     const numEquipment = 1 + Math.floor(Math.random() * 3)
-    const availableEquipment = equipment.filter((e) => e.status === 'OPERATIONAL')
-    const selectedEquipment = []
-    for (let j = 0; j < numEquipment; j++) {
-      const eq = availableEquipment[Math.floor(Math.random() * availableEquipment.length)]
-      if (!selectedEquipment.includes(eq.id)) {
-        selectedEquipment.push(eq.id)
-        await prisma.reservationEquipment.create({
-          data: {
-            reservationId: reservation.id,
-            equipmentId: eq.id
-          }
-        })
-      }
+    const selectedEquipmentIds = pickUniqueEquipmentIds(numEquipment)
+    await prisma.reservationEquipment.createMany({
+      data: selectedEquipmentIds.map((equipmentId) => ({
+        reservationId: reservation.id,
+        equipmentId
+      })),
+      skipDuplicates: true
+    })
+
+    if ((i + 1) % 1000 === 0) {
+      console.log(`… created ${i + 1}/${futureReservationCount} future reservations`)
     }
   }
 
   console.log(`✅ Created ${futureReservationCount} future reservations (confirmed and pending)`)
-  console.log(`📊 Total reservations: ${reservations.length}`)
+  console.log(`📊 Total reservations: ${totalReservations}`)
   console.log('🎉 Database seeding completed successfully!')
 }
 

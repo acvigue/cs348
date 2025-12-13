@@ -1,3 +1,4 @@
+import { Prisma } from '@/generated/prisma/client'
 import prisma from '../../prisma'
 import { ReservationStatus } from '~/generated/prisma/enums'
 import { responses } from '../../utils/openapi'
@@ -101,58 +102,73 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Forbidden' })
   }
 
-  // Fetch all equipment and check they exist and are in the same lab
-  const equipmentList = await prisma.equipment.findMany({
-    where: { id: { in: equipmentIds } },
-    select: { id: true, labId: true }
-  })
-  if (equipmentList.length !== equipmentIds.length) {
-    throw createError({ statusCode: 400, statusMessage: 'One or more equipment IDs are invalid' })
-  }
-  const labId = equipmentList[0].labId
-  if (!equipmentList.every((eq) => eq.labId === labId)) {
-    throw createError({ statusCode: 400, statusMessage: 'All equipment must be in the same lab' })
-  }
-
-  // Check for time overlaps for each equipment
-  const overlappingEquipment = await prisma.reservationEquipment.findMany({
-    where: {
-      equipmentId: { in: equipmentIds },
-      reservation: {
-        startTime: { lt: end },
-        endTime: { gt: start },
-        status: { in: ['PENDING', 'CONFIRMED'] }
+  const reservation = await prisma.$transaction(
+    async (tx) => {
+      const equipmentList = await tx.equipment.findMany({
+        where: { id: { in: equipmentIds } },
+        select: { id: true, labId: true, name: true }
+      })
+      if (equipmentList.length !== equipmentIds.length) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'One or more equipment IDs are invalid'
+        })
       }
-    },
-    include: { equipment: true }
-  })
-  if (overlappingEquipment.length > 0) {
-    const itemsString = overlappingEquipment.map((oe) => oe.equipment.name).join(', ')
-    throw createError({
-      statusCode: 409,
-      statusMessage: `The following equipment items are already reserved for the selected time: ${itemsString}`
-    })
-  }
-
-  // Instructors cannot confirm their own
-  const status = user.role === 'INSTRUCTOR' ? ReservationStatus.PENDING : ReservationStatus.PENDING
-
-  // Create reservation and link equipment
-  const reservation = await prisma.reservation.create({
-    data: {
-      userId: user.id,
-      startTime: start,
-      endTime: end,
-      purpose,
-      notes,
-      status,
-      equipment: {
-        create: equipmentIds.map((equipmentId) => ({ equipmentId }))
+      if (equipmentList.length === 0) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'No equipment found'
+        })
       }
+      const labId = equipmentList[0]!.labId
+      if (!equipmentList.every((eq) => eq.labId === labId)) {
+        throw createError({
+          statusCode: 400,
+          statusMessage: 'All equipment must be in the same lab'
+        })
+      }
+
+      const overlappingEquipment = await tx.reservationEquipment.findMany({
+        where: {
+          equipmentId: { in: equipmentIds },
+          reservation: {
+            startTime: { lt: end },
+            endTime: { gt: start },
+            status: { in: ['PENDING', 'CONFIRMED'] }
+          }
+        },
+        include: { equipment: true }
+      })
+      if (overlappingEquipment.length > 0) {
+        const itemsString = overlappingEquipment.map((oe) => oe.equipment.name).join(', ')
+        throw createError({
+          statusCode: 409,
+          statusMessage: `The following equipment items are already reserved for the selected time: ${itemsString}`
+        })
+      }
+
+      const status =
+        user.role === 'INSTRUCTOR' ? ReservationStatus.PENDING : ReservationStatus.PENDING
+
+      return tx.reservation.create({
+        data: {
+          userId: user.id,
+          startTime: start,
+          endTime: end,
+          purpose,
+          notes,
+          status,
+          equipment: {
+            create: equipmentIds.map((equipmentId) => ({ equipmentId }))
+          }
+        },
+        include: {
+          equipment: true
+        }
+      })
     },
-    include: {
-      equipment: true
-    }
-  })
+    { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }
+  )
+
   return { reservation }
 })

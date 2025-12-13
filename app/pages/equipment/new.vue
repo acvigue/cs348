@@ -32,8 +32,9 @@ if (!canManageEquipment.value) {
 }
 
 // Fetch labs
+const labsQuery = computed(() => ({ results_per_page: 100 }))
 const { data: labsData } = await useFetch('/api/labs', {
-  query: { results_per_page: 100 }
+  query: labsQuery
 })
 
 const labs = computed(() => labsData.value?.labs || [])
@@ -66,22 +67,11 @@ const error = ref('')
 // Lab options for select
 const labOptions = computed(() =>
   labs.value.map((lab) => ({
-    id: lab.id,
     label: `${lab.building} ${lab.roomNumber}`,
+    value: lab.id,
     description: lab.description ?? undefined
   }))
 )
-
-const selectedLab = ref<{ id: number; label: string; description: string | undefined } | undefined>(
-  undefined
-)
-
-// Watch lab selection
-watch(selectedLab, (newLab) => {
-  if (newLab) {
-    state.labId = newLab.id
-  }
-})
 
 // Status options
 const statusOptions = [
@@ -89,13 +79,6 @@ const statusOptions = [
   { label: 'Maintenance', value: 'MAINTENANCE' },
   { label: 'Out of Order', value: 'OUT_OF_ORDER' }
 ]
-
-const selectedStatus = computed({
-  get: () => statusOptions.find((opt) => opt.value === state.status) || statusOptions[0],
-  set: (val) => {
-    if (val) state.status = val.value as EquipmentStatus
-  }
-})
 
 const onSubmit = async (event: FormSubmitEvent<Schema>) => {
   error.value = ''
@@ -137,16 +120,13 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
 <template>
   <div>
     <UContainer class="py-8 max-w-4xl">
-      <!-- Header -->
-      <div class="mb-8">
-        <UButton to="/equipment" variant="ghost" icon="i-heroicons-arrow-left" class="mb-4">
-          Back to Equipment
-        </UButton>
-        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">Add New Equipment</h1>
-        <p class="text-gray-600 dark:text-gray-400">
-          Add a new equipment item to the lab inventory.
-        </p>
-      </div>
+      <UButton to="/equipment" variant="ghost" icon="i-heroicons-arrow-left" class="mb-4">
+        Back to Equipment
+      </UButton>
+      <PageHeader
+        title="Add New Equipment"
+        description="Add a new equipment item to the lab inventory."
+      />
 
       <!-- Form -->
       <UCard>
@@ -186,13 +166,18 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
 
           <!-- Lab Selection -->
           <UFormField label="Lab Location" name="labId" required>
-            <USelectMenu v-model="selectedLab" :items="labOptions" placeholder="Select a lab" />
+            <USelectMenu
+              v-model="state.labId"
+              :items="labOptions"
+              value-key="value"
+              placeholder="Select a lab"
+            />
             <template #hint> Lab where this equipment is located </template>
           </UFormField>
 
           <!-- Status -->
           <UFormField label="Status" name="status" required>
-            <USelectMenu v-model="selectedStatus" :items="statusOptions" />
+            <USelectMenu v-model="state.status" :items="statusOptions" value-key="value" />
             <template #hint> Current operational status of the equipment </template>
           </UFormField>
 
@@ -218,7 +203,7 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
               type="submit"
               icon="i-heroicons-check"
               :loading="loading"
-              :disabled="!selectedLab"
+              :disabled="!state.labId"
             >
               Add Equipment
             </UButton>

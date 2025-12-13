@@ -1,8 +1,12 @@
+import type { Prisma } from '@/generated/prisma/client'
+import type { ReservationStatus } from '~/generated/prisma/enums'
 import prisma from '../../prisma'
 import { isAdmin } from '../../middleware/session'
 import { parameters, responses } from '../../utils/openapi'
 import { addComputedStatus } from '../../utils/equipmentStatus'
 import { addComputedReservationStatusToMany } from '../../utils/reservationStatus'
+import { parsePaginationQuery, buildPaginationMeta } from '../../utils/pagination'
+import type { ReservationFilterParams } from '~/types/filters'
 
 defineRouteMeta({
   openAPI: {
@@ -39,54 +43,77 @@ export default defineEventHandler(async (event) => {
   const user = event.context.user
   if (!user) throw createError({ statusCode: 401, statusMessage: 'Unauthorized' })
 
-  const { page = 1, results_per_page = 20 } = getQuery(event)
-  const pageNum = Math.max(1, parseInt(page as string, 10) || 1)
-  const perPage = Math.max(1, parseInt(results_per_page as string, 10) || 20)
-  let where = {}
+  const rawQuery = getQuery(event) as ReservationFilterParams & Record<string, unknown>
+  const { page, perPage, cursor } = parsePaginationQuery(rawQuery)
+  const now = new Date()
+
+  const where: Prisma.ReservationWhereInput = {}
   if (!isAdmin(user)) {
-    where = { userId: user.id }
+    where.userId = user.id
   }
-  const total_results = await prisma.reservation.count({ where })
-  const total_pages = Math.ceil(total_results / perPage)
-  const reservations = await prisma.reservation.findMany({
-    where,
-    skip: (pageNum - 1) * perPage,
-    take: perPage,
-    include: {
-      equipment: {
-        include: {
-          equipment: {
-            include: {
-              lab: true,
-              reservationLinks: {
-                where: {
-                  reservation: {
-                    status: 'CONFIRMED',
-                    endTime: {
-                      gte: new Date()
+
+  const andConditions: Prisma.ReservationWhereInput[] = []
+  const statusParam = (rawQuery.status || rawQuery.statusFilter) as string | undefined
+  if (statusParam && statusParam !== 'ALL') {
+    const normalized = statusParam.toUpperCase()
+    if (normalized === 'IN_PROGRESS') {
+      andConditions.push({ status: 'CONFIRMED' })
+      andConditions.push({ startTime: { lte: now } })
+      andConditions.push({ endTime: { gte: now } })
+    } else if (normalized === 'COMPLETED') {
+      andConditions.push({ status: 'CONFIRMED' })
+      andConditions.push({ endTime: { lt: now } })
+    } else {
+      andConditions.push({ status: normalized as ReservationStatus })
+    }
+  }
+
+  if (andConditions.length) {
+    where.AND = andConditions
+  }
+
+  const [total_results, reservations] = await prisma.$transaction([
+    prisma.reservation.count({ where }),
+    prisma.reservation.findMany({
+      where,
+      skip: cursor ? 1 : (page - 1) * perPage,
+      take: perPage,
+      cursor: cursor ? { id: cursor } : undefined,
+      include: {
+        equipment: {
+          include: {
+            equipment: {
+              include: {
+                lab: true,
+                reservationLinks: {
+                  where: {
+                    reservation: {
+                      status: 'CONFIRMED',
+                      endTime: {
+                        gte: now
+                      }
                     }
-                  }
-                },
-                select: {
-                  reservation: {
-                    select: {
-                      status: true,
-                      startTime: true,
-                      endTime: true
+                  },
+                  select: {
+                    reservation: {
+                      select: {
+                        status: true,
+                        startTime: true,
+                        endTime: true
+                      }
                     }
                   }
                 }
               }
             }
           }
-        }
+        },
+        user: true
       },
-      user: true
-    },
-    orderBy: { startTime: 'desc' }
-  })
+      orderBy: [{ startTime: 'desc' }, { id: 'desc' }]
+    })
+  ])
 
-  // Add computed status to equipment and reservations
   const reservationsWithComputedStatus = addComputedReservationStatusToMany(
     reservations.map((reservation) => ({
       ...reservation,
@@ -97,12 +124,18 @@ export default defineEventHandler(async (event) => {
     }))
   )
 
+  const totalPages = Math.max(1, Math.ceil(total_results / perPage))
+  const nextCursor = page < totalPages ? (reservations.at(-1)?.id ?? null) : null
+  const prevCursor = page > 1 ? (reservations.at(0)?.id ?? null) : null
+
   return {
     reservations: reservationsWithComputedStatus,
-    pagination: {
-      page: pageNum,
-      total_pages,
-      total_results
-    }
+    pagination: buildPaginationMeta({
+      page,
+      perPage,
+      totalResults: total_results,
+      nextCursor,
+      prevCursor
+    })
   }
 })
