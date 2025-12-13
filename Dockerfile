@@ -40,7 +40,7 @@ RUN addgroup -S appuser && adduser -S -G appuser appuser
 RUN chown appuser:appuser /app
 
 RUN apk add --no-cache git
-RUN npm i dotenv prisma @prisma/adapter-pg
+RUN npm i dotenv prisma @prisma/adapter-pg tsx
 
 # Copy built application from build stage as well as prisma files
 COPY --from=build --chown=appuser:appuser /app/.output ./
