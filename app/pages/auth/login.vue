@@ -78,12 +78,6 @@ const onSubmit = async (event: FormSubmitEvent<Schema>) => {
           placeholder="Enter your password"
           required
         />
-        <ULink
-          to="/auth/forgot_password"
-          class="block mt-1 text-right text-sm text-primary hover:underline"
-        >
-          Forgot your password?
-        </ULink>
       </UFormField>
 
       <UAlert

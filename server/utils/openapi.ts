@@ -43,11 +43,7 @@ export const schemas = {
       name: { type: 'string', nullable: true },
       role: { type: 'string', enum: ['STUDENT', 'INSTRUCTOR', 'ADMIN'] },
       createdAt: { type: 'string', format: 'date-time' },
-      updatedAt: { type: 'string', format: 'date-time' },
-      verificationTokens: {
-        type: 'array',
-        items: { $ref: '#/components/schemas/VerificationToken' }
-      }
+      updatedAt: { type: 'string', format: 'date-time' }
     }
   },
 
@@ -164,22 +160,6 @@ export const schemas = {
     ]
   },
 
-  // Verification Token
-  VerificationToken: {
-    type: 'object',
-    properties: {
-      id: { type: 'number' },
-      token: { type: 'string' },
-      expires: { type: 'string', format: 'date-time' },
-      type: {
-        type: 'string',
-        enum: ['EMAIL_VERIFICATION', 'PASSWORD_RESET']
-      },
-      createdAt: { type: 'string', format: 'date-time' },
-      userId: { type: 'number' }
-    }
-  },
-
   // Success responses
   SuccessMessage: {
     type: 'object',
@@ -243,14 +223,6 @@ export const parameters = {
     required: false,
     schema: { type: 'number' as const, default: 20 },
     description: 'Number of results per page'
-  },
-
-  token: {
-    in: 'query' as const,
-    name: 'token',
-    required: true,
-    schema: { type: 'string' as const },
-    description: 'Verification token'
   }
 }
 

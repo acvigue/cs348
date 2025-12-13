@@ -1,7 +1,6 @@
 import { compare } from 'bcrypt'
 import { z } from 'zod'
 import prisma from '../../prisma'
-import { VerificationTokenType } from '~/generated/prisma/enums'
 import { responses } from '../../utils/openapi'
 
 defineRouteMeta({
@@ -49,14 +48,6 @@ defineRouteMeta({
         }
       },
       401: responses[401],
-      403: {
-        description: 'Email not verified',
-        content: {
-          'application/json': {
-            schema: { $ref: '#/components/schemas/Error' }
-          }
-        }
-      },
       500: responses[500]
     }
   }
@@ -73,9 +64,6 @@ export default defineEventHandler(async (event) => {
   const user = await prisma.user.findFirst({
     where: {
       email: body.email
-    },
-    include: {
-      verificationTokens: true
     }
   })
 
@@ -83,15 +71,6 @@ export default defineEventHandler(async (event) => {
     throw createError({
       statusCode: 401,
       statusMessage: 'Invalid email or password'
-    })
-  }
-
-  if (
-    user.verificationTokens.some((token) => token.type === VerificationTokenType.EMAIL_VERIFICATION)
-  ) {
-    throw createError({
-      statusCode: 403,
-      statusMessage: 'Email not verified'
     })
   }
 

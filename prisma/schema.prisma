@@ -18,24 +18,13 @@ model User {
   email              String              @unique
   password           String
 
-  verificationTokens VerificationToken[] 
-
   createdAt          DateTime            @default(now())
   updatedAt          DateTime            @updatedAt
   reservations       Reservation[]
 
+  @@index([email])
+  @@index([id])
   @@map("users")
-}
-
-model VerificationToken {
-  id        Int      @id @default(autoincrement())
-  token     String   @unique
-  expires   DateTime
-  type      VerificationTokenType
-  createdAt DateTime @default(now())
-
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
-  userId    Int
 }
 
 model Lab {
@@ -124,11 +113,6 @@ enum ReservationStatus {
   CONFIRMED
   CANCELLED
   COMPLETED
-}
-
-enum VerificationTokenType {
-  EMAIL_VERIFICATION
-  PASSWORD_RESET
 }
 
 enum LabAvailability {

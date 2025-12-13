@@ -39,7 +39,14 @@ export default defineEventHandler(async (event) => {
 
   const found = await prisma.user.findUnique({
     where: { id: Number(id) },
-    include: { verificationTokens: true }
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      createdAt: true,
+      updatedAt: true
+    }
   })
   if (!found) throw createError({ statusCode: 404, statusMessage: 'User not found' })
   return { user: found }

@@ -1,48 +1,57 @@
 <script setup lang="ts">
 const { user, loggedIn } = await useUser()
 
-const links = [
-  {
-    label: 'Dashboard',
-    icon: 'i-heroicons-home',
-    to: '/dashboard'
-  },
-  {
-    label: 'Equipment',
-    icon: 'i-heroicons-beaker',
-    to: '/equipment'
-  },
-  {
-    label: 'Labs',
-    icon: 'i-heroicons-building-office-2',
-    to: '/labs'
-  },
-  {
-    label: 'Reservations',
-    icon: 'i-heroicons-calendar-days',
-    to: '/reservations'
+const links = computed(() => {
+  if (!loggedIn) {
+    return [
+      {
+        label: 'Log in',
+        icon: 'i-heroicons-arrow-right-on-rectangle',
+        to: '/auth/login'
+      }
+    ]
   }
-]
 
-const isInstructorOrAdmin = computed(
-  () => user.value?.body?.role === 'INSTRUCTOR' || user.value?.body?.role === 'ADMIN'
-)
+  const items = [
+    {
+      label: 'Dashboard',
+      icon: 'i-heroicons-home',
+      to: '/dashboard'
+    },
+    {
+      label: 'Equipment',
+      icon: 'i-heroicons-beaker',
+      to: '/equipment'
+    },
+    {
+      label: 'Labs',
+      icon: 'i-heroicons-building-office-2',
+      to: '/labs'
+    },
+    {
+      label: 'Reservations',
+      icon: 'i-heroicons-calendar-days',
+      to: '/reservations'
+    }
+  ]
 
-if (isInstructorOrAdmin.value) {
-  links.push({
-    label: 'Reports',
-    icon: 'i-heroicons-chart-bar',
-    to: '/reports'
-  })
-}
+  const role = user.value?.body?.role
+  if (role === 'INSTRUCTOR' || role === 'ADMIN') {
+    items.push({
+      label: 'Reports',
+      icon: 'i-heroicons-chart-bar',
+      to: '/reports'
+    })
+  }
 
-if (loggedIn) {
-  links.push({
+  items.push({
     label: 'Logout',
     icon: 'i-heroicons-arrow-right-on-rectangle',
     to: '/auth/logout'
   })
-}
+
+  return items
+})
 
 const siteName = useAppConfig().public.siteName
 </script>

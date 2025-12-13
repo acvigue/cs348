@@ -1,16 +1,13 @@
 import { hash } from 'bcrypt'
 import { z } from 'zod'
 import prisma from '../../prisma'
-import { sendEmail } from '../../utils/sendEmail'
-import { randomBytes } from 'crypto'
-import { VerificationTokenType } from '~/generated/prisma/enums'
 import { responses } from '../../utils/openapi'
 
 defineRouteMeta({
   openAPI: {
     tags: ['Authentication'],
     summary: 'Register new user',
-    description: 'Create a new user account and send verification email',
+    description: 'Create a new user account',
     requestBody: {
       required: true,
       content: {
@@ -69,24 +66,12 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 400, statusMessage: 'Passwords do not match' })
   }
 
-  const token = randomBytes(32).toString('hex')
-  const expires = new Date(Date.now() + 1000 * 60 * 60 * 24)
-
   const user = await prisma.user
     .create({
       data: {
         email: body.email,
         password: await hash(body.password, 12),
-        name: body.name,
-        verificationTokens: {
-          create: [
-            {
-              token,
-              expires,
-              type: VerificationTokenType.EMAIL_VERIFICATION
-            }
-          ]
-        }
+        name: body.name
       }
     })
     .catch((err) => {
@@ -102,15 +87,6 @@ export default defineEventHandler(async (event) => {
         statusMessage: 'Internal server error'
       })
     })
-
-  // Send verification email
-  const verifyUrl = `${process.env.BASE_URL || 'http://localhost:3000'}/api/auth/verify?token=${token}`
-
-  await sendEmail({
-    to: user.email,
-    subject: 'Verify your email',
-    html: `<p>Click <a href="${verifyUrl}">here</a> to verify your email.</p>`
-  })
 
   return {
     status: 201,
