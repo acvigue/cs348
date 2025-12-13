@@ -63,6 +63,9 @@ importers:
       prisma:
         specifier: ^7.1.0
         version: 7.1.0(@types/react@19.2.7)(magicast@0.5.1)(react-dom@19.2.3(react@19.2.3))(react@19.2.3)(typescript@5.9.3)
+      tailwindcss:
+        specifier: ^4.0.0
+        version: 4.1.18
       tsx:
         specifier: ^4.21.0
         version: 4.21.0
