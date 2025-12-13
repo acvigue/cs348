@@ -20,8 +20,10 @@ jobs:
       - name: Install dependencies
         run: pnpm install
 
-      - name: Type Check
-        run: pnpm nuxt typecheck
+      - name: Prisma Generate
+        run: pnpm prisma generate
 
+      - name: Typecheck
+        run: pnpm nuxt typecheck
       - name: Build
         run: pnpm build
